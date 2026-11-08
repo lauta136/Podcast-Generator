@@ -216,11 +216,18 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<bool>("IsContinuation")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LastError")
                         .HasColumnType("text");
 
                     b.Property<int>("Order")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Recap")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("Status")
                         .IsRequired()

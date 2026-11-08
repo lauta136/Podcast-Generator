@@ -1,6 +1,6 @@
 # Architecture
 
-Decisions are in [DESIGN.md](DESIGN.md). This file explains how the code implements them and records the non-obvious choices. The pipeline diagram arrives with the generation slice.
+Decisions are in [DESIGN.md](DESIGN.md). This file explains how the code implements them and records the non-obvious choices.
 
 ## Layers
 ```mermaid
@@ -10,7 +10,29 @@ flowchart LR
   Infrastructure --> Application
   Application --> Domain["Domain<br/>entities, enums"]
 ```
-Controllers map entities to DTOs; entities never leave the API. Services throw `RequestValidationException` / `NotFoundException`, which `AppExceptionHandler` turns into `ProblemDetails` (400 / 404). DataAnnotations on request DTOs catch malformed input; business rules (supported languages, configured duration range) live in services.
+Controllers map entities to DTOs; entities never leave the API. Services throw `RequestValidationException` / `NotFoundException`, and `ConflictException`, which `AppExceptionHandler` turns into `ProblemDetails` (400 / 404 / 409). DataAnnotations on request DTOs catch malformed input; business rules (supported languages, configured duration range) live in services.
+
+## Generation pipeline
+```mermaid
+flowchart TD
+  POST["POST /api/episodes"] -->|"Episode(Pending) + GenerationJob(Queued), 202"| DB[(PostgreSQL)]
+  Worker["GenerationWorker (BackgroundService)"] -->|"claim: UPDATE ... FOR UPDATE SKIP LOCKED<br/>Queued, or Running with expired lease"| DB
+  Worker --> Gen["EpisodeGenerator.RunAsync"]
+  Gen --> O{"sections exist?"}
+  O -- no --> Outline["Outline: 1 LLM call, JSON validated (1 repair)<br/>persist sections"]
+  O -- yes --> Sections
+  Outline --> Sections["Each unfinished section: 1 LLM call<br/>context = outline + last 6 recaps + last 3 sentences<br/>persist sentences + recap, mark Completed"]
+  Sections --> Short{"under 85% of target words?"}
+  Short -- yes --> Cont["Insert one continuation section before the closing one"] --> Sections
+  Short -- no --> Ready["Episode Ready<br/>(audio step comes with the TTS slice)"]
+  Sections -. "failure: section Failed, episode Failed, job Failed" .-> Retry["POST /retry: failed sections back to Pending, job Queued"]
+  Retry --> DB
+```
+- **Idempotent by construction.** `RunAsync` reloads the episode and only does what is missing. A section is saved and marked `Completed` in one `SaveChanges`, so a crash mid-call loses at most that call.
+- **Leases.** A claimed job's `LockedUntil` is renewed every lease/3 while it runs. After a crash it expires and the next poll claims the job again. On graceful shutdown the worker hands the job back immediately.
+- **Rolling context.** Each section call returns `{paragraphs, recap}`. The recap (English, 2–3 sentences) is the rolling summary for later sections, so there is no extra summarization call and the prompt size doesn't grow with episode length.
+- **Length is measured.** Word counts come from the generated text. One continuation section is added if the episode is clearly short. It goes before the closing section so the goodbye stays last, and it is skipped for single-section episodes.
+- **LLM errors.** 429 and 5xx responses are retried with `Retry-After` or exponential backoff with jitter, behind a requests-per-minute limiter. A `Retry-After` longer than `Llm:MaxDelaySeconds` (daily quota) fails the step at once with a clear message. Other 4xx responses fail without retry.
 
 ## Entities
 ```mermaid
@@ -43,3 +65,6 @@ erDiagram
 - **Integration tests get their own database** per test class (`podcast_test_<guid>`), created by migrations and dropped afterwards. CI points them at its service container through `ConnectionStrings__Default`.
 - **DataAnnotations number limits parse in invariant culture.** Otherwise `[Range(typeof(decimal), "0.75", "2.0")]` throws on machines whose locale uses a comma as the decimal separator.
 - **MSBuild warnings fail the build too** (`MSBuildTreatWarningsAsErrors`), so package version conflicts are caught early. EF Core Relational is pinned in Infrastructure for that reason.
+- **New child rows get their keys from EF**, not `Guid.NewGuid()`. A child added through a navigation with a preset key on a store-generated column is treated as an existing row, and EF issues an UPDATE that affects 0 rows.
+- **Text is cleaned before storage.** Markdown characters and short bracketed stage directions such as "(Musik)" are removed, because everything is read aloud. Sentence splitting knows common German abbreviations and ordinals ("am 3. Oktober"), but 3- and 4-digit years still end a sentence.
+- **Infrastructure references the ASP.NET Core shared framework** (`FrameworkReference`) for HttpClientFactory and hosting, instead of separate NuGet packages.

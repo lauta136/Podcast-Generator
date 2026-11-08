@@ -44,7 +44,37 @@ Secrets are never committed. Locally they go in `dotnet user-secrets` for the AP
 | `Llm:ApiKey` | Gemini or Groq API key | LLM pipeline slice |
 | `Tts:CredentialsPath` | Path to the Google Cloud service-account JSON | TTS slice |
 
-Getting keys and enabling Google Cloud TTS (including a billing alert) is documented in the slices that first need them.
+Enabling Google Cloud TTS (including a billing alert) is documented with the TTS slice.
+
+## LLM setup (free tier)
+Episodes are written by any OpenAI-compatible chat API. Pick one; switching is config only.
+
+**Gemini (default)**
+1. Create a **new Google Cloud project with no billing account linked**, just for the Gemini key. If a project has billing linked, Google charges for all Gemini usage, even within the free limits, and your TTS project will have billing enabled.
+2. In [Google AI Studio](https://aistudio.google.com/apikey), create an API key in that project.
+3. Store it:
+   ```bash
+   dotnet user-secrets set "Llm:ApiKey" "<your key>" --project src/PodcastGenerator.Api
+   ```
+4. Check the model and its daily limit in AI Studio. The default is `gemini-3.8-flash`. Free-tier daily limits are low and change without notice; `gemini-3.8-flash-lite` has a higher daily limit if you hit it. Override with `Llm:Model`.
+
+**Groq**
+1. Create a key at [console.groq.com/keys](https://console.groq.com/keys).
+2. Store it and point the app at Groq:
+   ```bash
+   dotnet user-secrets set "Llm:ApiKey" "<your key>" --project src/PodcastGenerator.Api
+   ```
+   ```bash
+   dotnet user-secrets set "Llm:BaseUrl" "https://api.groq.com/openai/v1/" --project src/PodcastGenerator.Api
+   ```
+   ```bash
+   dotnet user-secrets set "Llm:Model" "<a model from the Groq console>" --project src/PodcastGenerator.Api
+   ```
+3. Remove `Llm:ReasoningEffort` (set it to an empty string) if the chosen model rejects it.
+
+A 10-minute episode uses about 3 LLM requests (1 outline + 2 sections); a 60-minute one about 10. Free tiers may use prompts for training, so the app only ever sends the topic, level and generated text, never personal data.
+
+When the provider's quota runs out, the episode fails with a clear message instead of waiting for hours. Use **Retry** later; finished sections are kept.
 
 ## Tests
 ```bash
