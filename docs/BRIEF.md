@@ -1,0 +1,54 @@
+# Product Brief — AI Language Learning Podcast App
+
+Technical decisions live in `docs/DESIGN.md`. This file defines product behavior.
+
+## Problem
+Learners at intermediate levels (A2–B2) run out of listening material that is interesting, at the right difficulty and about topics they care about. Native podcasts are too fast or too hard; textbook audio is dull.
+
+## Product
+A web app that generates podcast episodes in the target language, on any topic, at the learner's CEFR level and chosen length, with a synced transcript and a good player. First target: German, for a B1 learner whose native language is Spanish.
+
+## Users
+One learner in the MVP (seeded local user). Registration and login come right after the MVP.
+
+## MVP features
+
+### Preferences (Profile page)
+- Native language (default Spanish). Target language: German only for now.
+- Default CEFR level (A1–C2, default B1).
+- Default episode length (minutes).
+- Interests (free-text list), used by "Surprise me".
+- Voice (from the provider's German voice catalog) and voice quality: Standard (WaveNet) or Premium (Chirp 3: HD).
+- Default playback speed.
+
+### Create Episode
+- Topic: free text, or "Surprise me" (picked from interests).
+- Level (prefilled from preferences, can be overridden per episode).
+- Length: 5–60 minutes (max is configurable).
+- Optional style: conversational monologue, storytelling, news-style explainer.
+- Shows an estimate before submitting: word count, characters to synthesize, and the share of this month's free TTS budget it uses. Submission is blocked if it would exceed the remaining budget.
+- After submitting, shows generation progress (outline → sections n/N → audio n/N) and moves to the Listening page when ready. Failed episodes show the error and a Retry button. Paused-for-budget episodes say so plainly.
+
+### My Episodes (library)
+- List with title, topic, level, length, status, listening progress.
+- Search by title/topic, filter by level and status, paging.
+- Resume from the saved position. Delete an episode (also deletes its audio).
+
+### Listening page
+- Player: play/pause, ±15 s, seek bar, speed 0.75–2×, volume.
+- Persistent mini-player while navigating the app.
+- Resume position saved every ~5 s and on pause.
+- Transcript under the player: the current sentence is highlighted and auto-scrolled; clicking a sentence seeks to it. Section list for jumping between sections.
+- Difficulty rating: *Too easy / Just right / Too hard*. Ratings fine-tune future episodes **within the chosen level** (for example "an easier B1"). They never change the level automatically.
+
+## Content quality
+- Natural spoken style of a friendly podcast host. Plain text only: no markdown, headings, emojis or stage directions, since everything is read aloud.
+- Vocabulary and grammar follow CEFR level constraints. Each section has a focus (a vocabulary field or grammar point) that appears naturally, without a lesson tone.
+- The episode reaches its target length with new content. Never pad with repetition.
+- No personal data in prompts.
+
+## Out of scope for the MVP (keep the model ready)
+Vocabulary lists and flashcards, quizzes, per-sentence translation (planned next: tap a sentence to see it in your native language), multiple speakers or dialogues, series, offline mode, other target languages.
+
+## Success
+A learner can set preferences, create a 10-minute German B1 episode, watch it generate, listen with all controls while following the transcript, close the browser, come back through the library and resume where they left off.
