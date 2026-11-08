@@ -27,7 +27,7 @@ jobs:
       ConnectionStrings__Default: Host=localhost;Port=5432;Database=podcast_test;Username=podcast;Password=podcast
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - run: dotnet restore
