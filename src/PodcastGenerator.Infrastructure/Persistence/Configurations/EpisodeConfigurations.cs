@@ -51,6 +51,7 @@ public class EpisodeSectionConfiguration : IEntityTypeConfiguration<EpisodeSecti
         builder.Property(s => s.Title).HasMaxLength(200);
         builder.Property(s => s.Summary).HasMaxLength(2000);
         builder.Property(s => s.Focus).HasMaxLength(300);
+        builder.Property(s => s.Recap).HasMaxLength(2000);
         builder.HasIndex(s => new { s.EpisodeId, s.Order }).IsUnique();
         builder.HasMany(s => s.Segments).WithOne().HasForeignKey(t => t.SectionId).OnDelete(DeleteBehavior.Cascade);
     }

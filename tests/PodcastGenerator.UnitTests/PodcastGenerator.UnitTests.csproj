@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PodcastGenerator.Application\PodcastGenerator.Application.csproj" />
     <ProjectReference Include="..\..\src\PodcastGenerator.Domain\PodcastGenerator.Domain.csproj" />
+    <ProjectReference Include="..\..\src\PodcastGenerator.Infrastructure\PodcastGenerator.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

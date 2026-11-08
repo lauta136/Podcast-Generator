@@ -21,6 +21,12 @@ public class AppExceptionHandler(IProblemDetailsService problemDetails) : IExcep
                 Title = "Not found",
                 Detail = e.Message,
             },
+            ConflictException e => new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Conflict",
+                Detail = e.Message,
+            },
             _ => null,
         };
 

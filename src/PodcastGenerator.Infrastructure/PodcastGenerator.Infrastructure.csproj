@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- HttpClientFactory, hosting (BackgroundService) and logging, without extra NuGet packages. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\PodcastGenerator.Application\PodcastGenerator.Application.csproj" />
   </ItemGroup>
 
@@ -9,7 +14,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PodcastGenerator.UnitTests" />
+  </ItemGroup>
 
 </Project>

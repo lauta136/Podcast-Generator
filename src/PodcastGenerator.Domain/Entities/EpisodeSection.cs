@@ -15,6 +15,12 @@ public class EpisodeSection
     /// <summary>Vocabulary field or grammar point this section uses naturally.</summary>
     public string? Focus { get; set; }
 
+    /// <summary>Short English summary of what the section actually said; context for later sections.</summary>
+    public string? Recap { get; set; }
+
+    /// <summary>True for a section added because the episode came out shorter than its target.</summary>
+    public bool IsContinuation { get; set; }
+
     /// <summary>Actual word count of the generated text.</summary>
     public int? WordCount { get; set; }
 
