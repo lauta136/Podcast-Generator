@@ -19,3 +19,7 @@ dotnet_diagnostic.CA2007.severity = none
 [tests/**.cs]
 # xUnit test names use underscores
 dotnet_diagnostic.CA1707.severity = none
+
+[**/Migrations/*.cs]
+# EF Core generated code
+generated_code = true

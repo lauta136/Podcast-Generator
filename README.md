@@ -4,6 +4,7 @@ AI-generated listening podcasts for language immersion. Pick a topic, a CEFR lev
 
 - Product behavior: [docs/BRIEF.md](docs/BRIEF.md)
 - Technical decisions: [docs/DESIGN.md](docs/DESIGN.md)
+- How the code is organized: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Stack
 ASP.NET Core (.NET 10) · EF Core + PostgreSQL · React + TypeScript + Vite · Gemini or Groq (LLM, free tier) · Google Cloud Text-to-Speech.
@@ -33,7 +34,7 @@ dotnet run --project src/PodcastGenerator.Api
 ```bash
 cd web && npm install && npm run dev
 ```
-The frontend proxies `/api` to the API at `http://localhost:5273`. Health check: `GET /health`.
+PostgreSQL listens on `localhost:5433`. The API applies migrations on startup in Development. The frontend proxies `/api` to the API at `http://localhost:5273`. Health check: `GET /health`.
 
 ## Secrets
 Secrets are never committed. Locally they go in `dotnet user-secrets` for the API project; elsewhere, environment variables (`Section__Key`). Keys never reach the frontend.
