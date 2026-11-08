@@ -1,0 +1,22 @@
+Write section {{section_number}} of {{section_count}} of the episode "{{episode_title}}".
+
+Full outline:
+{{outline}}
+
+This section: "{{section_title}}"
+What it covers: {{section_summary}}
+Language focus: {{section_focus}}
+Length: about {{target_words}} words. Reach the length with new content from the outline, never by repeating yourself.
+{{position_instructions}}
+
+Already covered in earlier sections (do not repeat it):
+{{previous_recaps}}
+
+The previous section ended with:
+{{previous_ending}}
+
+Reply with this JSON:
+{
+  "paragraphs": ["the spoken text in German, split into natural paragraphs of 60 to 150 words"],
+  "recap": "2-3 sentences in English summarizing what this section actually said, for writing the next sections"
+}

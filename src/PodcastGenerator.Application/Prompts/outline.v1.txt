@@ -1,0 +1,21 @@
+Plan one podcast episode.
+
+Topic: {{topic}}
+Style: {{style}}
+Length: about {{target_words}} spoken words in total, in exactly {{section_count}} sections of about {{section_words}} words each.
+{{feedback}}
+
+Make the sections build on each other with a clear arc. The first section opens the episode and greets the listener; the last one wraps up. Each section has a different vocabulary field or grammar point that fits the content and the level, used naturally rather than taught.
+
+Reply with this JSON:
+{
+  "title": "episode title in German, short and inviting",
+  "description": "one or two sentences in simple German describing the episode",
+  "sections": [
+    {
+      "title": "section title in German",
+      "summary": "2-3 sentences in English: what this section covers, specific enough to write it",
+      "focus": "the vocabulary field or grammar point, in English"
+    }
+  ]
+}

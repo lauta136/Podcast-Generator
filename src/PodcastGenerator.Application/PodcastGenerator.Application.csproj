@@ -9,7 +9,13 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.14" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
+  <ItemGroup>
+    <!-- Versioned prompt templates, loaded by PromptLibrary. -->
+    <EmbeddedResource Include="Prompts\*.txt;Prompts\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PodcastGenerator.UnitTests" />
+  </ItemGroup>
 
 </Project>
