@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PodcastGenerator.Application\PodcastGenerator.Application.csproj" />
+    <ProjectReference Include="..\PodcastGenerator.Infrastructure\PodcastGenerator.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
