@@ -6,7 +6,7 @@ Technical decisions live in `docs/DESIGN.md`. This file defines product behavior
 Learners at intermediate levels (A2–B2) run out of listening material that is interesting, at the right difficulty and about topics they care about. Native podcasts are too fast or too hard; textbook audio is dull.
 
 ## Product
-A web app that generates podcast episodes in the target language, on any topic, at the learner's CEFR level and chosen length, with a synced transcript and a good player. First target: German, for a B1 learner whose native language is Spanish.
+A web app that generates podcast episodes in the target language, on any topic, at the learner's CEFR level and chosen length, with a synced transcript and a good player. First target: German, for a B1 learner whose native language is English.
 
 ## Users
 One learner in the MVP (seeded local user). Registration and login come right after the MVP.
@@ -14,7 +14,7 @@ One learner in the MVP (seeded local user). Registration and login come right af
 ## MVP features
 
 ### Preferences (Profile page)
-- Native language (default Spanish). Target language: German only for now.
+- Native language (default English). Target language: German only for now.
 - Default CEFR level (A1–C2, default B1).
 - Default episode length (minutes).
 - Interests (free-text list), used by "Surprise me".
@@ -48,7 +48,17 @@ One learner in the MVP (seeded local user). Registration and login come right af
 - No personal data in prompts.
 
 ## Out of scope for the MVP (keep the model ready)
-Vocabulary lists and flashcards, quizzes, per-sentence translation (planned next: tap a sentence to see it in your native language), multiple speakers or dialogues, series, offline mode, other target languages.
+Vocabulary lists and flashcards, quizzes, per-sentence translation (planned next: tap a sentence to see it in your native language), multiple speakers or dialogues, offline mode, other target languages.
+
+## Planned after the MVP: Seasons
+Episodes can be grouped into **seasons** on a big topic, for example "The Spanish Empire".
+- Create a season from a topic, level and number of episodes. The app plans an arc first (one line per episode, in order), then generates episodes from it.
+- Each episode knows what came before: its prompt gets the season arc plus short summaries of earlier episodes, so it builds on them instead of repeating them, and can briefly recap at the start.
+- Existing standalone episodes can be moved into a season, and episodes can be reordered.
+- Library shows seasons as folders with overall progress ("3 of 8 listened"). Playing a season continues to the next episode.
+- Budget estimate on the create form covers the whole season, and episodes are generated one at a time so a season can stop at the TTS budget and resume next month.
+
+For the MVP, episodes have a nullable season reference and an order number so seasons can be added without a breaking schema change.
 
 ## Success
 A learner can set preferences, create a 10-minute German B1 episode, watch it generate, listen with all controls while following the transcript, close the browser, come back through the library and resume where they left off.

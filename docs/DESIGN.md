@@ -12,13 +12,15 @@ These override the sections below where they differ.
 - **TTS budget:** reserve estimated characters atomically before each request, count characters as sent (failures included), default budgets at ~90% of the free tier.
 - **One worker loop** with a lease. The lease still protects restarts and expired locks.
 - **Repositories** are query-specific, not generic. Validation uses DataAnnotations (no FluentValidation dependency).
+- **Native language default is English** (configurable), replacing Spanish in §1.
+- **Seasons come after the MVP** (see the brief). For the MVP, `Episode` has a nullable `SeasonId` and `SeasonOrder`, and a `Season` table (`UserId`, title, topic, level, arc JSON) exists but has no API or UI yet. Episode prompts will later take the season arc and summaries of earlier episodes, so each `Episode` stores a short `Summary` generated with its outline.
 - `TranscriptSegment` has a nullable `Translation` column, ready for on-demand translation after the MVP.
 - **Test runners:** xUnit (backend), Vitest (frontend). Frontend lint uses oxlint, which ships with the current Vite template.
 
 ## 1. Scope
 - Build **Phase 1 (MVP) only**: preferences, episode configuration, outline + section-based script generation, TTS, audio player, transcript, library.
-- Do not build vocabulary, quizzes, multi-speaker, series, offline mode or extra languages. Keep the model ready for them, don't implement them.
-- German is the only target language for now; native language is configurable (default Spanish).
+- Do not build vocabulary, quizzes, multi-speaker, seasons, offline mode or extra languages. Keep the model ready for them, don't implement them.
+- German is the only target language for now; native language is configurable (default English).
 - Real functionality only. No mock data in real code paths. Fakes live in test projects.
 
 ## 2. Stack (fixed, intentionally boring)
@@ -75,7 +77,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - Validate every LLM JSON response; on invalid JSON retry once with a repair prompt, then fail the step.
 
 ## 5. Data model
-`User`, `UserPreferences`, `Episode`, `EpisodeSection`, `TranscriptSegment`, `AudioSegment` (voice, model family, provider, duration, storage key), `ListeningProgress`, `GenerationJob`, `TtsUsage`. Indexes for library search/filter (title, topic, language, level, status).
+`User`, `UserPreferences`, `Season` (post-MVP, see §0), `Episode`, `EpisodeSection`, `TranscriptSegment`, `AudioSegment` (voice, model family, provider, duration, storage key), `ListeningProgress`, `GenerationJob`, `TtsUsage`. Indexes for library search/filter (title, topic, language, level, status).
 
 ## 6. API (MVP)
 - `GET/PUT /api/preferences`
