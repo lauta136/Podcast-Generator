@@ -27,7 +27,7 @@ jobs:
       ConnectionStrings__Default: Host=localhost;Port=5432;Database=podcast_test;Username=podcast;Password=podcast
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - run: dotnet restore
@@ -42,7 +42,7 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: web/.nvmrc
           cache: npm
