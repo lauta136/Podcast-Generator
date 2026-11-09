@@ -1,14 +1,31 @@
+# Weekly updates. Minor and patch versions arrive as one grouped PR per ecosystem;
+# major versions still get their own PR so breaking changes are reviewed one at a time.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
       interval: weekly
+    groups:
+      nuget-minor-and-patch:
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /web
     schedule:
       interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Node types must match the Node major we run (web/.nvmrc, CI). Bump both together by hand.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
