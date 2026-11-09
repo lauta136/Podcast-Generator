@@ -83,7 +83,7 @@ public class OpenAiCompatibleLlmProviderTests
     [Fact]
     public async Task Gives_up_after_max_retries()
     {
-        var handler = new ScriptedHandler(Enumerable.Range(0, 3).Select(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)).ToArray());
+        var handler = new ScriptedHandler(Enumerable.Range(0, 3).Select(_ => (object)new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)).ToArray());
 
         await Assert.ThrowsAsync<LlmUnavailableException>(() => Create(handler, maxRetries: 2).GenerateTextAsync(Request(), CancellationToken.None));
         Assert.Equal(3, handler.Calls);
@@ -107,9 +107,53 @@ public class OpenAiCompatibleLlmProviderTests
         Assert.Equal("Sorry, no.", ex.RawContent);
     }
 
+    [Fact]
+    public async Task Timeouts_are_retried_only_once()
+    {
+        // HttpClient reports its timeout as a TaskCanceledException while the caller's token is not cancelled.
+        var handler = new ScriptedHandler(new TaskCanceledException("timeout"), new TaskCanceledException("timeout"), Json(Ok));
+
+        await Assert.ThrowsAsync<LlmUnavailableException>(() => Create(handler, maxRetries: 5).GenerateTextAsync(Request(), CancellationToken.None));
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Switches_to_the_fallback_model_when_the_main_model_stays_overloaded()
+    {
+        var handler = new ScriptedHandler(
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            Json(Ok));
+
+        var result = await Create(handler, maxRetries: 1, fallback: "small-model").GenerateJsonAsync<TitleOnly>(Request(), CancellationToken.None);
+
+        Assert.Equal("Hallo", result.Title);
+        Assert.Equal(["test-model", "test-model", "small-model"], handler.Models);
+    }
+
+    [Fact]
+    public async Task Quota_exhaustion_also_falls_back_because_quotas_are_per_model()
+    {
+        var handler = new ScriptedHandler(TooMany(TimeSpan.FromHours(3)), Json(Ok));
+
+        var result = await Create(handler, fallback: "small-model").GenerateJsonAsync<TitleOnly>(Request(), CancellationToken.None);
+
+        Assert.Equal("Hallo", result.Title);
+        Assert.Equal(["test-model", "small-model"], handler.Models);
+    }
+
+    [Fact]
+    public async Task Configuration_errors_do_not_fall_back()
+    {
+        var handler = new ScriptedHandler(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        await Assert.ThrowsAsync<LlmException>(() => Create(handler, fallback: "small-model").GenerateTextAsync(Request(), CancellationToken.None));
+        Assert.Equal(["test-model"], handler.Models);
+    }
+
     private static LlmRequest Request() => new("test", "system", "user");
 
-    private static OpenAiCompatibleLlmProvider Create(ScriptedHandler handler, int maxRetries = 3, string apiKey = "test-key")
+    private static OpenAiCompatibleLlmProvider Create(ScriptedHandler handler, int maxRetries = 3, string apiKey = "test-key", string fallback = "")
     {
         var options = Options.Create(new LlmOptions
         {
@@ -118,6 +162,9 @@ public class OpenAiCompatibleLlmProviderTests
             ApiKey = apiKey,
             MaxRetries = maxRetries,
             BaseDelayMs = 1,
+            OverloadBaseDelayMs = 1,
+            MaxTimeoutRetries = 1,
+            FallbackModel = fallback,
             MaxDelaySeconds = 60,
             RequestsPerMinute = 1000,
         });
@@ -140,24 +187,34 @@ public class OpenAiCompatibleLlmProviderTests
 
     private sealed record TitleOnly(string Title);
 
-    private sealed class ScriptedHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
+    /// <summary>Replays responses in order; an Exception entry is thrown instead (e.g. a timeout).</summary>
+    private sealed class ScriptedHandler(params object[] responses) : HttpMessageHandler
     {
-        private readonly Queue<HttpResponseMessage> _responses = new(responses);
+        private readonly Queue<object> _responses = new(responses);
 
         public int Calls { get; private set; }
 
+        public List<string> Models { get; } = [];
+
         public AuthenticationHeaderValue? LastAuthorization { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Calls++;
             LastAuthorization = request.Headers.Authorization;
-            return Task.FromResult(_responses.Dequeue());
+            using var body = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            Models.Add(body.RootElement.GetProperty("model").GetString()!);
+            return _responses.Dequeue() switch
+            {
+                Exception e => throw e,
+                HttpResponseMessage r => r,
+                var other => throw new InvalidOperationException($"Unexpected script entry {other}"),
+            };
         }
 
         protected override void Dispose(bool disposing)
         {
-            foreach (var r in _responses)
+            foreach (var r in _responses.OfType<HttpResponseMessage>())
             {
                 r.Dispose();
             }

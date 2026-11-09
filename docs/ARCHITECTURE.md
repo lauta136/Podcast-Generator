@@ -32,7 +32,8 @@ flowchart TD
 - **Leases.** A claimed job's `LockedUntil` is renewed every lease/3 while it runs. After a crash it expires and the next poll claims the job again. On graceful shutdown the worker hands the job back immediately.
 - **Rolling context.** Each section call returns `{paragraphs, recap}`. The recap (English, 2–3 sentences) is the rolling summary for later sections, so there is no extra summarization call and the prompt size doesn't grow with episode length.
 - **Length is measured.** Word counts come from the generated text. One continuation section is added if the episode is clearly short. It goes before the closing section so the goodbye stays last, and it is skipped for single-section episodes.
-- **LLM errors.** 429 and 5xx responses are retried with `Retry-After` or exponential backoff with jitter, behind a requests-per-minute limiter. A `Retry-After` longer than `Llm:MaxDelaySeconds` (daily quota) fails the step at once with a clear message. Other 4xx responses fail without retry.
+- **LLM errors.** 429 responses are retried with `Retry-After` or exponential backoff with jitter, behind a requests-per-minute limiter. 5xx responses and network errors use a longer base backoff (`Llm:OverloadBaseDelayMs`), because overload lasts minutes. Timeouts are retried only `Llm:MaxTimeoutRetries` times (default 1), since a timed-out request may still be billed against the free quota. A `Retry-After` longer than `Llm:MaxDelaySeconds` (daily quota) stops retrying at once. When the main model is unavailable after all that, the call is repeated once on `Llm:FallbackModel`; overload and free quotas are per model. 4xx configuration errors (bad key, unknown model) fail immediately and never fall back.
+- **Length prompting.** Measured on Gemini, asking for "about N words" produced ~70% of N. Section prompts (`section.v2`) ask for a minimum word count *and* a paragraph count of ~100 words each, which brought sections to ~85%.
 
 ## Entities
 ```mermaid

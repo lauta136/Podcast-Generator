@@ -82,7 +82,7 @@ public sealed partial class FakeLlmProvider : ILlmProvider
     [GeneratedRegex(@"Write section (\d+) of")]
     private static partial Regex SectionNumberLine();
 
-    [GeneratedRegex(@"Length: about (\d+) words")]
+    [GeneratedRegex(@"Length: at least (\d+) words")]
     private static partial Regex TargetWordsLine();
 }
 

@@ -50,19 +50,36 @@ public sealed partial class OpenAiCompatibleLlmProvider(
             throw new LlmException("LLM is not configured: set Llm:ApiKey and Llm:Model (see README).");
         }
 
+        try
+        {
+            return await SendToModelAsync(o.Model, request, json, ct);
+        }
+        catch (LlmUnavailableException e) when (!string.IsNullOrWhiteSpace(o.FallbackModel) && o.FallbackModel != o.Model)
+        {
+            // Overload and free-tier quotas are per model, so a smaller model is often still available.
+            LogFallback(logger, request.Purpose, o.Model, o.FallbackModel, e.Message);
+            return await SendToModelAsync(o.FallbackModel, request, json, ct);
+        }
+    }
+
+    private async Task<string> SendToModelAsync(string model, LlmRequest request, bool json, CancellationToken ct)
+    {
+        var o = options.Value;
         var body = new ChatRequest(
-            o.Model,
+            model,
             [new("system", request.SystemPrompt), new("user", request.UserPrompt)],
             request.Temperature,
             json ? new ResponseFormat("json_object") : null,
             string.IsNullOrWhiteSpace(o.ReasoningEffort) ? null : o.ReasoningEffort);
 
         Exception? lastError = null;
+        var timeouts = 0;
         for (var attempt = 0; attempt <= o.MaxRetries; attempt++)
         {
             await limiter.WaitAsync(ct);
 
             TimeSpan? retryAfter = null;
+            var overloaded = false;
             try
             {
                 using var message = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
@@ -83,19 +100,27 @@ public sealed partial class OpenAiCompatibleLlmProvider(
                 if (response.StatusCode != HttpStatusCode.TooManyRequests && (int)response.StatusCode < 500)
                 {
                     // 400/401/403/404: retrying won't help. Never log the request (it has the key header).
-                    throw new LlmException($"LLM request failed with {(int)response.StatusCode}: {Truncate(errorBody, 500)}");
+                    throw new LlmException($"LLM request to {model} failed with {(int)response.StatusCode}: {Truncate(errorBody, 500)}");
                 }
 
                 retryAfter = ParseRetryAfter(response.Headers.RetryAfter, clock.GetUtcNow());
-                lastError = new LlmUnavailableException($"LLM returned {(int)response.StatusCode}: {Truncate(errorBody, 300)}");
+                overloaded = (int)response.StatusCode >= 500;
+                lastError = new LlmUnavailableException($"{model} returned {(int)response.StatusCode}: {Truncate(errorBody, 300)}");
             }
             catch (HttpRequestException e)
             {
                 lastError = e;
+                overloaded = true;
             }
             catch (TaskCanceledException e) when (!ct.IsCancellationRequested)
             {
-                lastError = e; // HttpClient timeout
+                // HttpClient timeout. Each one may still count against the provider quota, so retry sparingly.
+                lastError = e;
+                overloaded = true;
+                if (++timeouts > o.MaxTimeoutRetries)
+                {
+                    break;
+                }
             }
 
             if (attempt == o.MaxRetries)
@@ -106,17 +131,17 @@ public sealed partial class OpenAiCompatibleLlmProvider(
             if (retryAfter > TimeSpan.FromSeconds(o.MaxDelaySeconds))
             {
                 throw new LlmUnavailableException(
-                    $"LLM quota exhausted; the provider asks to wait {retryAfter.Value.TotalMinutes:F0} min. Retry the episode later.",
+                    $"{model} quota exhausted; the provider asks to wait {retryAfter.Value.TotalMinutes:F0} min. Retry the episode later.",
                     lastError);
             }
 
-            var delay = RetryDelay.Compute(
-                attempt, retryAfter, TimeSpan.FromMilliseconds(o.BaseDelayMs), TimeSpan.FromSeconds(o.MaxDelaySeconds), Random.Shared);
+            var baseDelay = TimeSpan.FromMilliseconds(overloaded ? o.OverloadBaseDelayMs : o.BaseDelayMs);
+            var delay = RetryDelay.Compute(attempt, retryAfter, baseDelay, TimeSpan.FromSeconds(o.MaxDelaySeconds), Random.Shared);
             LogRetry(logger, request.Purpose, attempt + 1, delay.TotalSeconds, lastError?.Message);
             await Task.Delay(delay, clock, ct);
         }
 
-        throw new LlmUnavailableException($"LLM unavailable after {o.MaxRetries + 1} attempts: {lastError?.Message}", lastError);
+        throw new LlmUnavailableException($"{model} unavailable after retries: {lastError?.Message}", lastError);
     }
 
     internal static TimeSpan? ParseRetryAfter(RetryConditionHeaderValue? header, DateTimeOffset now) => header switch
@@ -140,6 +165,9 @@ public sealed partial class OpenAiCompatibleLlmProvider(
     }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "LLM {Purpose}: {Model} unavailable, switching to {FallbackModel}: {Error}")]
+    private static partial void LogFallback(ILogger logger, string purpose, string model, string fallbackModel, string error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "LLM {Purpose} attempt {Attempt} failed, retrying in {DelaySeconds:F1}s: {Error}")]
     private static partial void LogRetry(ILogger logger, string purpose, int attempt, double delaySeconds, string? error);

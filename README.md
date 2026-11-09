@@ -56,7 +56,10 @@ Episodes are written by any OpenAI-compatible chat API. Pick one; switching is c
    ```bash
    dotnet user-secrets set "Llm:ApiKey" "<your key>" --project src/PodcastGenerator.Api
    ```
-4. Check the model and its daily limit in AI Studio. The default is `gemini-3.8-flash`. Free-tier daily limits are low and change without notice; `gemini-3.8-flash-lite` has a higher daily limit if you hit it. Override with `Llm:Model`.
+4. Models: the default is `gemini-3.5-flash`, with `gemini-3.5-flash-lite` as automatic fallback when the main model is overloaded or out of daily quota (`Llm:Model`, `Llm:FallbackModel`). Free-tier limits are per model and change without notice. To see which models your key can use:
+   ```bash
+   KEY=$(dotnet user-secrets list --project src/PodcastGenerator.Api | sed -n 's/^Llm:ApiKey = //p'); curl -s -H "x-goog-api-key: $KEY" "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" | python3 -c 'import sys,json; [print(m["name"]) for m in json.load(sys.stdin).get("models",[]) if "flash" in m["name"]]'
+   ```
 
 **Groq**
 1. Create a key at [console.groq.com/keys](https://console.groq.com/keys).
@@ -74,7 +77,7 @@ Episodes are written by any OpenAI-compatible chat API. Pick one; switching is c
 
 A 10-minute episode uses about 3 LLM requests (1 outline + 2 sections); a 60-minute one about 10. Free tiers may use prompts for training, so the app only ever sends the topic, level and generated text, never personal data.
 
-When the provider's quota runs out, the episode fails with a clear message instead of waiting for hours. Use **Retry** later; finished sections are kept.
+Busy models (HTTP 503) are retried with backoff of up to a minute per attempt; timeouts are retried only once, because a timed-out request may still count against the quota. If the main model stays unavailable, the fallback model takes over. If both are out of quota, the episode fails with a clear message instead of waiting for hours. Use **Retry** later; finished sections are kept.
 
 ## Tests
 ```bash
