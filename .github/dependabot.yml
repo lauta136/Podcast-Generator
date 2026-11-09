@@ -7,6 +7,12 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # Test-only tooling: low risk, always bumped together (all test projects, any version type).
+      test-tooling:
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "coverlet*"
       nuget-minor-and-patch:
         update-types: [minor, patch]
 
