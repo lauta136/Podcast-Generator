@@ -20,7 +20,8 @@ updates:
     ignore:
       # Node types must match the Node major we run (web/.nvmrc, CI). Bump both together by hand.
       - dependency-name: "@types/node"
-        update-types: [version-update:semver-major]
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: github-actions
     directory: /
