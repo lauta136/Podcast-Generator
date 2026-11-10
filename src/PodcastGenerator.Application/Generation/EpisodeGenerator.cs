@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PodcastGenerator.Application.Audio;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Domain.Entities;
@@ -19,6 +20,7 @@ public partial class EpisodeGenerator(
     IEpisodeRepository episodes,
     ILlmProvider llm,
     IOptions<EpisodeOptions> options,
+    AudioGenerator audio,
     TimeProvider clock,
     ILogger<EpisodeGenerator> logger) : IEpisodeGenerator
 {
@@ -49,9 +51,12 @@ public partial class EpisodeGenerator(
             await GeneratePendingSectionsAsync(episode, ct);
         }
 
-        // Audio synthesis is added as the next pipeline step in the TTS slice.
         var recaps = string.Join(" ", Ordered(episode).Select(s => s.Recap));
         episode.Summary = recaps.Length <= MaxRecapLength ? recaps : recaps[..MaxRecapLength];
+
+        await SetStatusAsync(episode, EpisodeStatus.GeneratingAudio, ct);
+        await audio.RunAsync(episode, ct);
+
         await SetStatusAsync(episode, EpisodeStatus.Ready, ct);
     }
 

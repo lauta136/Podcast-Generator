@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Generation;
+using PodcastGenerator.Application.Tts;
 
 namespace PodcastGenerator.Infrastructure.Jobs;
 
@@ -77,6 +78,11 @@ public sealed partial class GenerationWorker(
             await scope.ServiceProvider.GetRequiredService<JobLeases>().ReleaseAsync(job.JobId, CancellationToken.None);
             throw;
         }
+        catch (TtsBudgetExceededException e)
+        {
+            LogJobPaused(logger, job.EpisodeId, e.Message);
+            await FinishAsync(job, e.Message, paused: true);
+        }
         catch (Exception e)
         {
             LogJobFailed(logger, e, job.EpisodeId);
@@ -91,7 +97,7 @@ public sealed partial class GenerationWorker(
         return true;
     }
 
-    private async Task FinishAsync(ClaimedJob job, string? error)
+    private async Task FinishAsync(ClaimedJob job, string? error, bool paused = false)
     {
         // Fresh scope: the pipeline's DbContext may hold half-applied changes after a failure.
         await using var scope = scopes.CreateAsyncScope();
@@ -106,6 +112,10 @@ public sealed partial class GenerationWorker(
         if (error is null)
         {
             GenerationState.Complete(jobEntity, clock.GetUtcNow());
+        }
+        else if (paused)
+        {
+            GenerationState.Pause(episode, jobEntity, error, clock.GetUtcNow());
         }
         else
         {
@@ -144,6 +154,9 @@ public sealed partial class GenerationWorker(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} failed; it can be retried")]
     private static partial void LogJobFailed(ILogger logger, Exception e, Guid episodeId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} paused: {Reason}")]
+    private static partial void LogJobPaused(ILogger logger, Guid episodeId, string reason);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Generation worker error")]
     private static partial void LogWorkerError(ILogger logger, Exception e);

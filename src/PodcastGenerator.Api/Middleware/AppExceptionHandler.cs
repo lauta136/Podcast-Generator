@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using PodcastGenerator.Application.Common;
+using PodcastGenerator.Application.Tts;
 
 namespace PodcastGenerator.Api.Middleware;
 
@@ -19,6 +20,12 @@ public class AppExceptionHandler(IProblemDetailsService problemDetails) : IExcep
             {
                 Status = StatusCodes.Status404NotFound,
                 Title = "Not found",
+                Detail = e.Message,
+            },
+            TtsException e => new ProblemDetails
+            {
+                Status = StatusCodes.Status502BadGateway,
+                Title = "Text-to-Speech error",
                 Detail = e.Message,
             },
             ConflictException e => new ProblemDetails

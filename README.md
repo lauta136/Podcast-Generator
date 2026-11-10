@@ -39,12 +39,10 @@ PostgreSQL listens on `localhost:5433`. The API applies migrations on startup in
 ## Secrets
 Secrets are never committed. Locally they go in `dotnet user-secrets` for the API project; elsewhere, environment variables (`Section__Key`). Keys never reach the frontend.
 
-| Setting | Purpose | Needed from |
-|---|---|---|
-| `Llm:ApiKey` | Gemini or Groq API key | LLM pipeline slice |
-| `Tts:CredentialsPath` | Path to the Google Cloud service-account JSON | TTS slice |
-
-Enabling Google Cloud TTS (including a billing alert) is documented with the TTS slice.
+| Setting | Purpose |
+|---|---|
+| `Llm:ApiKey` | Gemini or Groq API key |
+| `Tts:Google:ApiKey` | Google Cloud API key restricted to the Text-to-Speech API |
 
 ## LLM setup (free tier)
 Episodes are written by any OpenAI-compatible chat API. Pick one; switching is config only.
@@ -78,6 +76,22 @@ Episodes are written by any OpenAI-compatible chat API. Pick one; switching is c
 A 10-minute episode uses about 5 LLM requests (1 outline + 2 sections + 2 proofreading passes); a 60-minute one about 19. Turning proofreading off (`Episodes:Proofread=false`) roughly halves that, at the cost of occasional grammar slips in the German. Free tiers may use prompts for training, so the app only ever sends the topic, level and generated text, never personal data.
 
 Busy models (HTTP 503) are retried with backoff of up to a minute per attempt; timeouts are retried only once, because a timed-out request may still count against the quota. If the main model stays unavailable, the fallback model takes over. If both are out of quota, the episode fails with a clear message instead of waiting for hours. Use **Retry** later; finished sections are kept.
+
+## Text-to-Speech setup (Google Cloud)
+Text-to-Speech requires billing on its Google Cloud project, so usage **beyond the free tier costs money**. The app stops itself before that happens (see "Budget guard" below), but set up a billing alert as a second safety net.
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project for TTS (this is the one with billing; keep the Gemini key in its separate no-billing project).
+2. Link a billing account, then enable the **Cloud Text-to-Speech API** (APIs & Services → Library).
+3. **Billing → Budgets & alerts → Create budget:** set an amount such as 1 USD with alerts at 50%, 90% and 100%.
+4. **APIs & Services → Credentials → Create credentials → API key.** Edit the key: under **API restrictions**, choose **Restrict key** and select only **Cloud Text-to-Speech API**.
+5. Store it:
+   ```bash
+   dotnet user-secrets set "Tts:Google:ApiKey" "<your key>" --project src/PodcastGenerator.Api
+   ```
+
+**Budget guard.** Before every request the app reserves the text's size (UTF-8 bytes, which is never less than what Google bills) against a monthly budget per voice family, and pauses the episode before the budget would be exceeded. Nothing is refunded, failed requests included, so the count only overestimates. Defaults are `Tts:Budgets:WaveNet:MonthlyChars = 900000` and `Tts:Budgets:Chirp3HD:MonthlyChars = 900000`, 90% of 1M characters, because Google's pages disagree about WaveNet's free tier (1M vs 4M). Check the [pricing page](https://cloud.google.com/text-to-speech/pricing) for your account before raising it. `GET /api/tts/budget` shows this month's usage. A 10-minute B1 episode is about 9,000 characters.
+
+Audio files are stored under `src/PodcastGenerator.Api/audio-storage/` (`Storage:LocalPath`), which is git-ignored.
 
 ## Tests
 ```bash

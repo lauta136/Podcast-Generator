@@ -40,11 +40,12 @@ public sealed record EpisodeDto(
     EpisodeStatus Status,
     string? LastError,
     DifficultyRating? DifficultyRating,
+    double? AudioDurationSec,
     DateTimeOffset CreatedAt)
 {
     public static EpisodeDto From(Episode e) => new(
         e.Id, e.Title, e.Description, e.Topic, e.LanguageCode, e.Level, e.Style, e.DurationMin, e.TargetWords,
-        e.Status, e.LastError, e.DifficultyRating, e.CreatedAt);
+        e.Status, e.LastError, e.DifficultyRating, e.AudioDurationSec, e.CreatedAt);
 }
 
 public sealed record EpisodeStatusDto(
@@ -53,10 +54,26 @@ public sealed record EpisodeStatusDto(
     string? Title,
     string? LastError,
     int SectionsTotal,
-    int SectionsCompleted)
+    int SectionsCompleted,
+    int AudioTotal,
+    int AudioCompleted)
 {
     public static EpisodeStatusDto From(EpisodeProgress p) =>
-        new(p.EpisodeId, p.Status, p.Title, p.LastError, p.SectionsTotal, p.SectionsCompleted);
+        new(p.EpisodeId, p.Status, p.Title, p.LastError, p.SectionsTotal, p.SectionsCompleted, p.AudioTotal, p.AudioCompleted);
+}
+
+public sealed record EpisodeEstimateDto(
+    CefrLevel Level,
+    int DurationMin,
+    int TargetWords,
+    TtsModelFamily VoiceModelFamily,
+    long EstimatedChars,
+    long BudgetRemaining,
+    long MonthlyBudget,
+    bool FitsBudget)
+{
+    public static EpisodeEstimateDto From(EpisodeEstimate e) =>
+        new(e.Level, e.DurationMin, e.TargetWords, e.VoiceModelFamily, e.EstimatedChars, e.BudgetRemaining, e.MonthlyBudget, e.FitsBudget);
 }
 
 public sealed record TranscriptDto(Guid EpisodeId, string? Title, IReadOnlyList<TranscriptSectionDto> Sections)

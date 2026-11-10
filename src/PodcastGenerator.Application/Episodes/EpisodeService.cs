@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using PodcastGenerator.Application.Common;
 using PodcastGenerator.Application.Generation;
 using PodcastGenerator.Application.Preferences;
+using PodcastGenerator.Application.Tts;
 using PodcastGenerator.Domain.Entities;
 using PodcastGenerator.Domain.Enums;
 
@@ -15,6 +16,9 @@ public interface IEpisodeService
     Task<Episode> GetTranscriptAsync(Guid episodeId, CancellationToken ct);
     Task RetryAsync(Guid episodeId, CancellationToken ct);
     Task RateAsync(Guid episodeId, DifficultyRating rating, CancellationToken ct);
+    Task DeleteAsync(Guid episodeId, CancellationToken ct);
+    Task<Stream> OpenAudioAsync(Guid episodeId, CancellationToken ct);
+    Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, CancellationToken ct);
 }
 
 public class EpisodeService(
@@ -22,6 +26,9 @@ public class EpisodeService(
     IPreferencesService preferences,
     ICurrentUser currentUser,
     IOptions<EpisodeOptions> options,
+    IOptions<TtsOptions> ttsOptions,
+    TtsBudget budget,
+    IAudioStorage storage,
     TimeProvider clock) : IEpisodeService
 {
     public const int MaxTopicLength = 500;
@@ -38,6 +45,15 @@ public class EpisodeService(
         if (duration < o.MinDurationMin || duration > o.MaxDurationMin)
         {
             throw new RequestValidationException(nameof(request.DurationMin), $"Must be between {o.MinDurationMin} and {o.MaxDurationMin} minutes.");
+        }
+
+        // Refuse up front rather than generate text that can't be voiced this month.
+        var estimate = await EstimateAsync(level, duration, ct);
+        if (!estimate.FitsBudget)
+        {
+            throw new ConflictException(
+                $"Not enough free {estimate.VoiceModelFamily} budget left this month: this episode needs about " +
+                $"{estimate.EstimatedChars:N0} characters, {estimate.BudgetRemaining:N0} remain. Choose a shorter episode or another voice quality.");
         }
 
         var now = clock.GetUtcNow();
@@ -75,7 +91,9 @@ public class EpisodeService(
             episode.Title,
             episode.LastError,
             episode.Sections.Count,
-            episode.Sections.Count(s => s.Status == StepStatus.Completed));
+            episode.Sections.Count(s => s.Status == StepStatus.Completed),
+            episode.AudioSegments.Count,
+            episode.AudioSegments.Count(a => a.Status == StepStatus.Completed));
     }
 
     public async Task<Episode> GetTranscriptAsync(Guid episodeId, CancellationToken ct) =>
@@ -108,6 +126,44 @@ public class EpisodeService(
         episode.DifficultyRating = rating;
         episode.UpdatedAt = clock.GetUtcNow();
         await episodes.SaveChangesAsync(ct);
+    }
+
+    public async Task<Stream> OpenAudioAsync(Guid episodeId, CancellationToken ct)
+    {
+        var episode = await episodes.GetAsync(currentUser.UserId, episodeId, ct) ?? throw NotFound(episodeId);
+        return episode is { Status: EpisodeStatus.Ready, AudioStorageKey: { } key }
+            ? await storage.OpenReadAsync(key, ct)
+            : throw new NotFoundException($"Episode {episodeId} has no audio yet (status: {episode.Status}).");
+    }
+
+    /// <summary>Deletes the episode and all of its audio files.</summary>
+    public async Task DeleteAsync(Guid episodeId, CancellationToken ct)
+    {
+        var episode = await episodes.GetWithTranscriptAsync(currentUser.UserId, episodeId, ct) ?? throw NotFound(episodeId);
+        if (episode.Status is EpisodeStatus.GeneratingOutline or EpisodeStatus.GeneratingSections or EpisodeStatus.GeneratingAudio)
+        {
+            throw new ConflictException("The episode is being generated right now; delete it once it is ready or has failed.");
+        }
+
+        var keys = episode.AudioSegments.Select(a => a.StorageKey).Append(episode.AudioStorageKey).OfType<string>().ToList();
+        episodes.Remove(episode);
+        await episodes.SaveChangesAsync(ct);
+
+        foreach (var key in keys)
+        {
+            await storage.DeleteAsync(key, ct); // after the DB delete: a crash leaves orphan files, never broken episodes
+        }
+    }
+
+    public async Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, CancellationToken ct)
+    {
+        var prefs = await preferences.GetAsync(ct);
+        var lvl = level ?? prefs.DefaultLevel;
+        var minutes = durationMin ?? prefs.DefaultDurationMin;
+        var words = LengthEstimator.TargetWords(lvl, minutes, options.Value);
+        var chars = (long)Math.Ceiling(words * ttsOptions.Value.CharsPerWord);
+        var status = (await budget.GetStatusAsync(ct)).Single(s => s.Family == prefs.VoiceModelFamily);
+        return new EpisodeEstimate(lvl, minutes, words, prefs.VoiceModelFamily, chars, status.Remaining, status.Budget, chars <= status.Remaining);
     }
 
     private static string ResolveTopic(CreateEpisode request, UserPreferences prefs)

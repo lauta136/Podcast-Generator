@@ -33,8 +33,13 @@ public class EpisodeRepository(AppDbContext db) : IEpisodeRepository
             .Select(e => e.DifficultyRating!.Value)
             .ToListAsync(ct);
 
+    public void Remove(Episode episode) => db.Episodes.Remove(episode);
+
     public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
     private IQueryable<Episode> WithTranscript() =>
-        db.Episodes.Include(e => e.Sections).ThenInclude(s => s.Segments).AsSplitQuery();
+        db.Episodes
+            .Include(e => e.Sections).ThenInclude(s => s.Segments)
+            .Include(e => e.AudioSegments)
+            .AsSplitQuery();
 }

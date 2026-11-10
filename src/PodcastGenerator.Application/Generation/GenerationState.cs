@@ -16,6 +16,12 @@ public static class GenerationState
             section.LastError = null;
         }
 
+        foreach (var chunk in episode.AudioSegments.Where(a => a.Status == StepStatus.Failed))
+        {
+            chunk.Status = StepStatus.Pending;
+            chunk.LastError = null;
+        }
+
         episode.Status = EpisodeStatus.Pending;
         episode.LastError = null;
         episode.UpdatedAt = now;
@@ -34,6 +40,20 @@ public static class GenerationState
         episode.UpdatedAt = now;
 
         job.Status = JobStatus.Failed;
+        job.LockedUntil = null;
+        job.LastError = message;
+        job.UpdatedAt = now;
+    }
+
+    /// <summary>Stopped at the TTS budget. Not a failure: retry once budget is available again.</summary>
+    public static void Pause(Episode episode, GenerationJob job, string reason, DateTimeOffset now)
+    {
+        var message = Truncate(reason);
+        episode.Status = EpisodeStatus.PausedForBudget;
+        episode.LastError = message;
+        episode.UpdatedAt = now;
+
+        job.Status = JobStatus.PausedForBudget;
         job.LockedUntil = null;
         job.LastError = message;
         job.UpdatedAt = now;
