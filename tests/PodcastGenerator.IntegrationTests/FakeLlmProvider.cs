@@ -9,7 +9,9 @@ namespace PodcastGenerator.IntegrationTests;
 
 /// <summary>
 /// Deterministic LLM for tests. Behaviour is keyed by the episode topic, so tests sharing a factory don't interfere:
-/// topics containing "FailSectionTwoOnce" fail section 2 on its first attempt; "ShortOnWords" writes 60% of the target.
+/// topics containing "FailSectionTwoOnce" fail section 2 on its first attempt; "ShortOnWords" writes 60% of the target;
+/// "ProofreadRewrites" makes the proofreader drop a paragraph (rejected); "ProofreadOutageOnce" fails the first proofread.
+/// Every generated sentence contains the typo "Fehlerr", which the proofreader corrects to "Fehler".
 /// </summary>
 public sealed partial class FakeLlmProvider : ILlmProvider
 {
@@ -23,6 +25,7 @@ public sealed partial class FakeLlmProvider : ILlmProvider
         {
             "outline" => Outline(request),
             "section" => Section(request),
+            "proofread" or "proofread-repair" => Proofread(request),
             _ => throw new NotSupportedException(request.Purpose),
         };
         return Task.FromResult((T)reply);
@@ -60,15 +63,51 @@ public sealed partial class FakeLlmProvider : ILlmProvider
             ? (int)(target * 0.6)
             : target;
 
-        // Sentences of 10 words, paragraphs of 8 sentences.
+        // Sentences of 10 words, paragraphs of 8 sentences. The first names the topic so proofreading can be matched.
         var sentences = Enumerable.Range(0, Math.Max(1, words / 10))
-            .Select(i => $"Das ist Satz {i + 1} aus Teil {number} mit genau zehn Wörtern hier.")
+            .Select(i => $"Das ist Satz {i + 1} aus Teil {number} mit einem Fehlerr.")
+            .Prepend($"Thema {topic}.")
             .ToList();
         var paragraphs = sentences.Chunk(8).Select(c => string.Join(" ", c)).ToList();
         return new SectionResponse { Paragraphs = paragraphs, Recap = $"Part {number} was covered." };
     }
 
+    private ProofreadResponse Proofread(LlmRequest request)
+    {
+        var json = ParagraphsJson().Match(request.UserPrompt).Groups[1].Value;
+        var paragraphs = JsonSerializer.Deserialize<List<string>>(json)!;
+        var topic = TopicSentence().Match(paragraphs[0]).Groups[1].Value;
+        var number = SectionInText().Match(string.Join(" ", paragraphs)).Groups[1].Value;
+        var attempt = Count(topic, $"proofread-{number}");
+        Count(topic, "proofread");
+
+        if (topic.Contains("ProofreadOutageOnce", StringComparison.Ordinal) && number == "1" && attempt == 1)
+        {
+            throw new LlmUnavailableException("Simulated proofreading outage");
+        }
+
+        if (topic.Contains("ProofreadRewrites", StringComparison.Ordinal))
+        {
+            return new ProofreadResponse { Paragraphs = paragraphs.Skip(1).ToList() };
+        }
+
+        return new ProofreadResponse
+        {
+            Paragraphs = paragraphs.Select(p => p.Replace("Fehlerr", "Fehler", StringComparison.Ordinal)).ToList(),
+            Corrections = [new ProofreadCorrection { Original = "einem Fehlerr", Corrected = "einem Fehler" }],
+        };
+    }
+
     private int Count(string topic, string key) => _calls.AddOrUpdate($"{topic}|{key}", 1, (_, n) => n + 1);
+
+    [GeneratedRegex(@"paragraphs:\s*(\[.*?\])\s*Reply with", RegexOptions.Singleline)]
+    private static partial Regex ParagraphsJson();
+
+    [GeneratedRegex(@"^Thema ([^.]+)\.")]
+    private static partial Regex TopicSentence();
+
+    [GeneratedRegex(@"aus Teil (\d+)")]
+    private static partial Regex SectionInText();
 
     [GeneratedRegex(@"Topic: (.+)")]
     private static partial Regex TopicLine();

@@ -71,6 +71,18 @@ public class PromptBuilderTests
         Assert.Contains("No greeting and no goodbye", request.UserPrompt);
     }
 
+    [Fact]
+    public void Proofread_prompt_sends_paragraphs_as_readable_json()
+    {
+        var request = PromptBuilder.Proofread(NewEpisode(), ["Die Mauer fiel am neunten November.", "Schöne Grüße aus Köln."]);
+
+        Assert.Equal("proofread", request.Purpose);
+        Assert.Contains("\"Schöne Grüße aus Köln.\"", request.UserPrompt); // umlauts not \u-escaped
+        Assert.Contains("exactly 2 paragraphs", request.UserPrompt);
+        Assert.Contains("Do not change anything else", request.UserPrompt);
+        Assert.True(request.Temperature <= 0.2);
+    }
+
     [Theory]
     [InlineData(new[] { DifficultyRating.TooHard, DifficultyRating.TooHard, DifficultyRating.JustRight }, "easier end")]
     [InlineData(new[] { DifficultyRating.TooEasy, DifficultyRating.TooEasy }, "harder end")]

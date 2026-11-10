@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PodcastGenerator.IntegrationTests;
 
@@ -62,6 +64,53 @@ public class EpisodeGenerationTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task Proofreading_corrects_the_transcript_and_records_what_changed()
+    {
+        const string topic = "Bauhaus";
+        var id = await CreateAsync(topic);
+        await WaitForAsync(id, "Ready");
+
+        var transcript = await _client.GetStringAsync(new Uri($"/api/episodes/{id}/transcript", UriKind.Relative));
+        Assert.DoesNotContain("Fehlerr", transcript);
+        Assert.Contains("einem Fehler.", transcript);
+
+        var sections = await SectionsAsync(id);
+        Assert.All(sections, s =>
+        {
+            Assert.Contains("Fehlerr", s.DraftJson); // the original draft is kept for auditing
+            Assert.Contains("einem Fehlerr", s.CorrectionsJson);
+        });
+        Assert.Equal(2, factory.Llm.Calls(topic, "proofread"));
+    }
+
+    [Fact]
+    public async Task A_proofreader_that_rewrites_is_rejected_and_the_draft_is_kept()
+    {
+        const string topic = "Kuckucksuhren ProofreadRewrites";
+        var id = await CreateAsync(topic);
+        await WaitForAsync(id, "Ready");
+
+        var transcript = await _client.GetStringAsync(new Uri($"/api/episodes/{id}/transcript", UriKind.Relative));
+        Assert.Contains("Fehlerr", transcript);
+        Assert.All(await SectionsAsync(id), s => Assert.Null(s.CorrectionsJson));
+    }
+
+    [Fact]
+    public async Task A_proofreading_outage_is_retried_without_regenerating_the_section()
+    {
+        const string topic = "Rhein ProofreadOutageOnce";
+        var id = await CreateAsync(topic);
+        await WaitForAsync(id, "Failed");
+
+        var retry = await _client.PostAsync(new Uri($"/api/episodes/{id}/retry", UriKind.Relative), null);
+        Assert.Equal(HttpStatusCode.Accepted, retry.StatusCode);
+        await WaitForAsync(id, "Ready");
+
+        Assert.Equal(1, factory.Llm.Calls(topic, "section-1")); // the draft was reused
+        Assert.Equal(2, factory.Llm.Calls(topic, "proofread-1"));
+    }
+
+    [Fact]
     public async Task Retrying_a_ready_episode_is_a_conflict()
     {
         var id = await CreateAsync("Brezeln");
@@ -97,6 +146,13 @@ public class EpisodeGenerationTests(ApiFactory factory) : IClassFixture<ApiFacto
     {
         var response = await _client.GetAsync(new Uri($"/api/episodes/{Guid.NewGuid()}/status", UriKind.Relative));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<List<PodcastGenerator.Domain.Entities.EpisodeSection>> SectionsAsync(Guid episodeId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PodcastGenerator.Infrastructure.Persistence.AppDbContext>();
+        return await db.EpisodeSections.Where(s => s.EpisodeId == episodeId).OrderBy(s => s.Order).ToListAsync();
     }
 
     private async Task<Guid> CreateAsync(string topic)

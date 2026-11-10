@@ -28,6 +28,9 @@ public class EpisodeOptions
     /// <summary>Below this share of the target length, one continuation section is added.</summary>
     public double MinLengthRatio { get; set; } = 0.85;
 
+    /// <summary>Run a proofreading LLM pass on every section (one extra request per section).</summary>
+    public bool Proofread { get; set; } = true;
+
     /// <summary>Paragraphs are split to at most this many characters (one TTS request each).</summary>
     public int MaxParagraphChars { get; set; } = 1000;
 }

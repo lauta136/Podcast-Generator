@@ -11,6 +11,7 @@ public static partial class PromptLibrary
     public const string SystemTemplate = "system.v1";
     public const string OutlineTemplate = "outline.v1";
     public const string SectionTemplate = "section.v2";
+    public const string ProofreadTemplate = "proofread.v1";
     private const string CefrFile = "cefr.v1.json";
 
     private static readonly ConcurrentDictionary<string, string> Cache = new();

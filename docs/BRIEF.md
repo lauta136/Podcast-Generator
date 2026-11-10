@@ -45,6 +45,7 @@ One learner in the MVP (seeded local user). Registration and login come right af
 - Natural spoken style of a friendly podcast host. Plain text only: no markdown, headings, emojis or stage directions, since everything is read aloud.
 - Vocabulary and grammar follow CEFR level constraints. Each section has a focus (a vocabulary field or grammar point) that appears naturally, without a lesson tone.
 - The episode reaches its target length with new content. Never pad with repetition.
+- Every section is proofread for grammar and spelling before it is read aloud, because learners pick up the mistakes they hear.
 - No personal data in prompts.
 
 ## Out of scope for the MVP (keep the model ready)

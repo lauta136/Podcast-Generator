@@ -21,8 +21,9 @@ flowchart TD
   Gen --> O{"sections exist?"}
   O -- no --> Outline["Outline: 1 LLM call, JSON validated (1 repair)<br/>persist sections"]
   O -- yes --> Sections
-  Outline --> Sections["Each unfinished section: 1 LLM call<br/>context = outline + last 6 recaps + last 3 sentences<br/>persist sentences + recap, mark Completed"]
-  Sections --> Short{"under 85% of target words?"}
+  Outline --> Sections["Each unfinished section: 1 LLM call (skipped if a draft exists)<br/>context = outline + last 6 recaps + last 3 sentences<br/>persist draft"]
+  Sections --> Proof["Proofread: 1 LLM call, only clear errors<br/>persist sentences + corrections, mark Completed"]
+  Proof --> Short{"under 85% of target words?"}
   Short -- yes --> Cont["Insert one continuation section before the closing one"] --> Sections
   Short -- no --> Ready["Episode Ready<br/>(audio step comes with the TTS slice)"]
   Sections -. "failure: section Failed, episode Failed, job Failed" .-> Retry["POST /retry: failed sections back to Pending, job Queued"]
@@ -30,6 +31,7 @@ flowchart TD
 ```
 - **Idempotent by construction.** `RunAsync` reloads the episode and only does what is missing. A section is saved and marked `Completed` in one `SaveChanges`, so a crash mid-call loses at most that call.
 - **Leases.** A claimed job's `LockedUntil` is renewed every lease/3 while it runs. After a crash it expires and the next poll claims the job again. On graceful shutdown the worker hands the job back immediately.
+- **Proofreading.** Learners copy what they hear, so each section gets a second, low-temperature call that may only fix clear errors (gender, case, endings, spelling). The draft is saved before proofreading, so a proofreading failure never pays for the section text again. Replies that change the paragraph count or move any paragraph by more than 10% of its words are rejected (one repair, then the draft is kept and a warning logged, so an over-eager proofreader can't block an episode). The draft and the list of corrections stay in `EpisodeSection.DraftJson` / `CorrectionsJson` for auditing. On a real Gemini run it fixed exactly the two errors in a 526-word section and changed nothing else. Disable with `Episodes:Proofread=false`.
 - **Rolling context.** Each section call returns `{paragraphs, recap}`. The recap (English, 2–3 sentences) is the rolling summary for later sections, so there is no extra summarization call and the prompt size doesn't grow with episode length.
 - **Length is measured.** Word counts come from the generated text. One continuation section is added if the episode is clearly short. It goes before the closing section so the goodbye stays last, and it is skipped for single-section episodes.
 - **LLM errors.** 429 responses are retried with `Retry-After` or exponential backoff with jitter, behind a requests-per-minute limiter. 5xx responses and network errors use a longer base backoff (`Llm:OverloadBaseDelayMs`), because overload lasts minutes. Timeouts are retried only `Llm:MaxTimeoutRetries` times (default 1), since a timed-out request may still be billed against the free quota. A `Retry-After` longer than `Llm:MaxDelaySeconds` (daily quota) stops retrying at once. When the main model is unavailable after all that, the call is repeated once on `Llm:FallbackModel`; overload and free quotas are per model. 4xx configuration errors (bad key, unknown model) fail immediately and never fall back.
