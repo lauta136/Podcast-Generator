@@ -70,6 +70,7 @@ public static class PromptBuilder
                 ["section_summary"] = section.Summary,
                 ["section_focus"] = section.Focus ?? "none in particular",
                 ["target_words"] = section.TargetWords.ToString(CultureInfo.InvariantCulture),
+                ["paragraph_count"] = Math.Max(2, (int)Math.Round(section.TargetWords / 100.0)).ToString(CultureInfo.InvariantCulture),
                 ["position_instructions"] = position,
                 ["previous_recaps"] = recaps.Count > 0 ? string.Join("\n", recaps) : "(nothing yet)",
                 ["previous_ending"] = ending,

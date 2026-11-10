@@ -6,7 +6,7 @@ Full outline:
 This section: "{{section_title}}"
 What it covers: {{section_summary}}
 Language focus: {{section_focus}}
-Length: about {{target_words}} words. Reach the length with new content from the outline, never by repeating yourself.
+Length: at least {{target_words}} words, written as {{paragraph_count}} paragraphs of about 100 words each. This is a long section: tell it in detail with examples, small stories and explanations. Reach the length with new content from the outline, never by repeating yourself.
 {{position_instructions}}
 
 Already covered in earlier sections (do not repeat it):
@@ -17,6 +17,6 @@ The previous section ended with:
 
 Reply with this JSON:
 {
-  "paragraphs": ["the spoken text in German, split into natural paragraphs of 60 to 150 words"],
+  "paragraphs": ["{{paragraph_count}} paragraphs of spoken German, about 100 words each"],
   "recap": "2-3 sentences in English summarizing what this section actually said, for writing the next sections"
 }
