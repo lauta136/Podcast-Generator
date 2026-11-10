@@ -1,3 +1,6 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Llm;
@@ -12,14 +15,20 @@ public interface IEpisodeGenerator
     Task RunAsync(Guid episodeId, CancellationToken ct);
 }
 
-public class EpisodeGenerator(
+public partial class EpisodeGenerator(
     IEpisodeRepository episodes,
     ILlmProvider llm,
     IOptions<EpisodeOptions> options,
-    TimeProvider clock) : IEpisodeGenerator
+    TimeProvider clock,
+    ILogger<EpisodeGenerator> logger) : IEpisodeGenerator
 {
     public const int RecentRatingsConsidered = 5;
     private const int MaxRecapLength = 2000;
+
+    private static readonly JsonSerializerOptions DraftJson = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     public async Task RunAsync(Guid episodeId, CancellationToken ct)
     {
@@ -86,15 +95,13 @@ public class EpisodeGenerator(
         section.Attempts++;
         try
         {
-            var all = Ordered(episode).ToList();
-            var previous = all.Where(s => s.Order < section.Order && s.Status == StepStatus.Completed).ToList();
+            // Step 1: write the text, unless a draft survived an earlier failed attempt.
+            var draft = section.DraftJson is null
+                ? await WriteDraftAsync(episode, section, ct)
+                : JsonSerializer.Deserialize<SectionDraft>(section.DraftJson, DraftJson)!;
 
-            var response = await ValidatedJson.GenerateAsync<SectionResponse>(
-                llm, PromptBuilder.Section(episode, all, section, previous), r => r.Validate(section.TargetWords), ct);
-
-            var paragraphs = TextSegmenter.FitParagraphs(
-                response.Paragraphs.Select(TextSegmenter.CleanForSpeech).Where(p => p.Length > 0),
-                options.Value.MaxParagraphChars);
+            // Step 2: proofread. Learners copy what they hear, so grammar slips are worth an extra request.
+            var paragraphs = options.Value.Proofread ? await ProofreadAsync(episode, section, draft.Paragraphs, ct) : draft.Paragraphs;
 
             section.Segments.Clear();
             var order = 0;
@@ -107,7 +114,7 @@ public class EpisodeGenerator(
             }
 
             section.WordCount = paragraphs.Sum(LengthEstimator.CountWords);
-            section.Recap = Limit(response.Recap.Trim(), MaxRecapLength);
+            section.Recap = Limit(draft.Recap.Trim(), MaxRecapLength);
             section.Status = StepStatus.Completed;
             section.LastError = null;
             await episodes.SaveChangesAsync(ct);
@@ -119,6 +126,50 @@ public class EpisodeGenerator(
             await episodes.SaveChangesAsync(CancellationToken.None);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Returns corrected paragraphs. If the proofreader keeps rewriting instead of correcting (invalid even after
+    /// repair), the draft is kept: a few slips are better than an episode stuck forever. Provider outages still
+    /// fail the step so a retry can proofread it later.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ProofreadAsync(
+        Episode episode, EpisodeSection section, IReadOnlyList<string> paragraphs, CancellationToken ct)
+    {
+        try
+        {
+            var proofread = await ValidatedJson.GenerateAsync<ProofreadResponse>(
+                llm, PromptBuilder.Proofread(episode, paragraphs), r => r.Validate(paragraphs), ct);
+            section.CorrectionsJson = JsonSerializer.Serialize(
+                proofread.Corrections.Where(c => c.Original != c.Corrected).ToList(), DraftJson);
+            return TextSegmenter.FitParagraphs(
+                proofread.Paragraphs.Select(TextSegmenter.CleanForSpeech).Where(p => p.Length > 0),
+                options.Value.MaxParagraphChars);
+        }
+        catch (LlmInvalidResponseException e)
+        {
+            LogProofreadSkipped(logger, episode.Id, section.Order + 1, e.Message);
+            section.CorrectionsJson = null;
+            return paragraphs;
+        }
+    }
+
+    private async Task<SectionDraft> WriteDraftAsync(Episode episode, EpisodeSection section, CancellationToken ct)
+    {
+        var all = Ordered(episode).ToList();
+        var previous = all.Where(s => s.Order < section.Order && s.Status == StepStatus.Completed).ToList();
+
+        var response = await ValidatedJson.GenerateAsync<SectionResponse>(
+            llm, PromptBuilder.Section(episode, all, section, previous), r => r.Validate(section.TargetWords), ct);
+
+        var paragraphs = TextSegmenter.FitParagraphs(
+            response.Paragraphs.Select(TextSegmenter.CleanForSpeech).Where(p => p.Length > 0),
+            options.Value.MaxParagraphChars);
+
+        var draft = new SectionDraft(paragraphs, response.Recap);
+        section.DraftJson = JsonSerializer.Serialize(draft, DraftJson);
+        await episodes.SaveChangesAsync(ct); // persisted before proofreading: never paid for twice
+        return draft;
     }
 
     /// <summary>
@@ -170,4 +221,7 @@ public class EpisodeGenerator(
     private static IEnumerable<EpisodeSection> Ordered(Episode episode) => episode.Sections.OrderBy(s => s.Order);
 
     private static string Limit(string s, int max) => s.Length <= max ? s : s[..max];
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} section {Section}: proofreading rejected, keeping the draft: {Reason}")]
+    private static partial void LogProofreadSkipped(ILogger logger, Guid episodeId, int section, string reason);
 }

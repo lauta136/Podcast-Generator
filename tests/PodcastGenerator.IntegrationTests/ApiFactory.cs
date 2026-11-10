@@ -15,7 +15,7 @@ namespace PodcastGenerator.IntegrationTests;
 /// created on the server from ConnectionStrings__Default or the local docker-compose DB.
 /// The LLM is always a fake: tests never call real providers.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const string LocalServer = "Host=localhost;Port=5433;Username=podcast;Password=podcast";
 
@@ -32,12 +32,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public FakeLlmProvider Llm { get; } = new();
 
+    protected virtual IEnumerable<(string Key, string Value)> ExtraSettings => [];
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Worker:PollIntervalMs", "50");
+        foreach (var (key, value) in ExtraSettings)
+        {
+            builder.UseSetting(key, value);
+        }
+
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<ILlmProvider>();
@@ -56,4 +63,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         await DisposeAsync();
     }
+}
+
+public sealed class NoProofreadApiFactory : ApiFactory
+{
+    protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Episodes:Proofread", "false")];
 }

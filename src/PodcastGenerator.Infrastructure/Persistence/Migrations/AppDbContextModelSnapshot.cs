@@ -209,6 +209,12 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                     b.Property<int>("Attempts")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CorrectionsJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("DraftJson")
+                        .HasColumnType("jsonb");
+
                     b.Property<Guid>("EpisodeId")
                         .HasColumnType("uuid");
 

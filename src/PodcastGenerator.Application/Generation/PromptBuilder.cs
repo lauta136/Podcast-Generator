@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Prompts;
 using PodcastGenerator.Domain.Entities;
@@ -76,6 +78,24 @@ public static class PromptBuilder
                 ["previous_ending"] = ending,
             }));
     }
+
+    public static LlmRequest Proofread(Episode episode, IReadOnlyList<string> paragraphs) => new(
+        "proofread",
+        $"You are a careful German copy editor for language-learning material at CEFR level {episode.Level}. Always reply with a single JSON object exactly as requested.",
+        PromptLibrary.Render(PromptLibrary.ProofreadTemplate, new Dictionary<string, string>
+        {
+            ["level"] = episode.Level.ToString(),
+            ["paragraph_count"] = paragraphs.Count.ToString(CultureInfo.InvariantCulture),
+            ["paragraphs_json"] = JsonSerializer.Serialize(paragraphs, ProofreadJson),
+        }),
+        Temperature: 0.1);
+
+    // Keep umlauts and quotes readable for the model instead of \u escapes.
+    private static readonly JsonSerializerOptions ProofreadJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = true,
+    };
 
     /// <summary>Turns recent ratings at the same level into a nudge that stays within the level.</summary>
     public static string? DifficultyFeedback(CefrLevel level, IReadOnlyList<DifficultyRating> recentRatings)

@@ -74,3 +74,32 @@ public class TextSegmenterTests
         Assert.Equal(paragraph, string.Join(" ", fitted));
     }
 }
+
+public class ProofreadResponseTests
+{
+    private static readonly string[] Original = ["Das ist eine dauerhafte Bauwerk aus Beton und Stahl.", "Klaus wohnt an der Sektoragrenze."];
+
+    [Fact]
+    public void Small_corrections_are_accepted()
+    {
+        var response = new ProofreadResponse { Paragraphs = ["Das ist ein dauerhaftes Bauwerk aus Beton und Stahl.", "Klaus wohnt an der Sektorengrenze."] };
+        Assert.Empty(response.Validate(Original));
+    }
+
+    [Fact]
+    public void Dropping_or_merging_paragraphs_is_rejected()
+    {
+        var response = new ProofreadResponse { Paragraphs = [string.Join(" ", Original)] };
+        Assert.Contains(response.Validate(Original), e => e.Contains("exactly 2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Rewriting_a_paragraph_is_rejected()
+    {
+        var longer = string.Join(" ", Enumerable.Repeat("Klaus wohnt an der Sektorengrenze in Berlin.", 3));
+        var original = new[] { Original[0], longer };
+        var response = new ProofreadResponse { Paragraphs = [Original[0], "Klaus wohnt in Berlin."] };
+
+        Assert.Contains(response.Validate(original), e => e.Contains("paragraph 2", StringComparison.Ordinal));
+    }
+}

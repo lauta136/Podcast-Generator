@@ -1,0 +1,20 @@
+Proofread this German text from a {{level}} learner podcast. It will be read aloud and learners will copy what they hear, so every error matters.
+
+Fix only clear errors:
+- grammar: gender, case, adjective endings, verb forms, word order
+- spelling, compound words and wrong or invented words
+- capitalization and punctuation that change how a sentence reads
+
+Do not change anything else. Keep the content, the style, the sentence structure, the {{level}} vocabulary and the paragraph breaks. Do not shorten, extend, summarize or rephrase correct sentences. Keep numbers and years written out as words.
+
+Text, as a JSON array of {{paragraph_count}} paragraphs:
+{{paragraphs_json}}
+
+Reply with this JSON:
+{
+  "paragraphs": ["exactly {{paragraph_count}} paragraphs, the corrected text in the same order"],
+  "corrections": [
+    { "original": "the wrong phrase as it appeared", "corrected": "the fixed phrase" }
+  ]
+}
+Use an empty "corrections" list if the text has no errors.

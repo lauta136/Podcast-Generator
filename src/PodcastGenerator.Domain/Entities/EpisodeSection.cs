@@ -21,6 +21,12 @@ public class EpisodeSection
     /// <summary>True for a section added because the episode came out shorter than its target.</summary>
     public bool IsContinuation { get; set; }
 
+    /// <summary>Generated text before proofreading (JSON). Saved first so a failed proofread never regenerates it.</summary>
+    public string? DraftJson { get; set; }
+
+    /// <summary>What proofreading changed (JSON list of original/corrected pairs), for auditing quality.</summary>
+    public string? CorrectionsJson { get; set; }
+
     /// <summary>Actual word count of the generated text.</summary>
     public int? WordCount { get; set; }
 
