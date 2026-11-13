@@ -19,6 +19,26 @@ public class EpisodesController(IEpisodeService episodes) : ControllerBase
         return AcceptedAtAction(nameof(GetStatus), new { id = episode.Id }, EpisodeDto.From(episode));
     }
 
+    /// <summary>The library: newest first, filtered and paged, with listening progress.</summary>
+    [HttpGet]
+    public async Task<EpisodePageDto> List(
+        [FromQuery] string? search,
+        [FromQuery] CefrLevel? level,
+        [FromQuery] EpisodeStatus? status,
+        CancellationToken ct,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20) =>
+        EpisodePageDto.From(await episodes.ListAsync(new EpisodeQuery(search, level, status, page, pageSize), ct));
+
+    [HttpGet("{id:guid}/progress")]
+    public async Task<ProgressDto> GetProgress(Guid id, CancellationToken ct) =>
+        ProgressDto.From(await episodes.GetListeningProgressAsync(id, ct));
+
+    /// <summary>Saves the resume position. The player calls it every few seconds and on pause.</summary>
+    [HttpPut("{id:guid}/progress")]
+    public async Task<ProgressDto> SaveProgress(Guid id, SaveProgressRequest request, CancellationToken ct) =>
+        ProgressDto.From(await episodes.SaveListeningProgressAsync(id, request.PositionSec!.Value, request.Completed, ct));
+
     /// <summary>Words, TTS characters and budget impact for an episode before creating it.</summary>
     [HttpGet("estimate")]
     public async Task<EpisodeEstimateDto> Estimate(

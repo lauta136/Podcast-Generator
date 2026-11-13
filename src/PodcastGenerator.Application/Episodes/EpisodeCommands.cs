@@ -1,3 +1,4 @@
+using PodcastGenerator.Domain.Entities;
 using PodcastGenerator.Domain.Enums;
 
 namespace PodcastGenerator.Application.Episodes;
@@ -16,6 +17,13 @@ public sealed record EpisodeProgress(
     int SectionsCompleted,
     int AudioTotal,
     int AudioCompleted);
+
+/// <summary>Library filters. Search matches title or topic, case-insensitively.</summary>
+public sealed record EpisodeQuery(string? Search, CefrLevel? Level, EpisodeStatus? Status, int Page, int PageSize);
+
+public sealed record EpisodeListItem(Episode Episode, ListeningProgress? Progress);
+
+public sealed record EpisodePage(IReadOnlyList<EpisodeListItem> Items, int Total, int Page, int PageSize);
 
 /// <summary>What an episode would cost before creating it.</summary>
 public sealed record EpisodeEstimate(

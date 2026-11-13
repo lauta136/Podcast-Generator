@@ -19,6 +19,13 @@ public interface IEpisodeRepository
 
     Task<IReadOnlyList<DifficultyRating>> RecentRatingsAsync(Guid userId, CefrLevel level, int take, CancellationToken ct);
 
+    /// <summary>Newest first, with the user's listening progress. Total counts all matches, not just the page.</summary>
+    Task<EpisodePage> ListAsync(Guid userId, EpisodeQuery query, CancellationToken ct);
+
+    Task<ListeningProgress?> GetProgressAsync(Guid userId, Guid episodeId, CancellationToken ct);
+
+    void AddProgress(ListeningProgress progress);
+
     void Remove(Episode episode);
 
     Task SaveChangesAsync(CancellationToken ct);
