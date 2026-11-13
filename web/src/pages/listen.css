@@ -1,0 +1,269 @@
+/* Listening page: a fixed console on the left, the read-along on the right (stacked on phones). */
+
+.listen {
+  display: grid;
+  grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+  gap: 2.5rem;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 4rem;
+  align-items: start;
+}
+
+.console {
+  position: sticky;
+  top: 1rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.console-title {
+  font-size: var(--step-2);
+}
+
+.console-meta {
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.controls {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.25rem 0;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.transport .button {
+  font-variant-numeric: tabular-nums;
+}
+
+.play-large {
+  width: 4rem;
+  height: 4rem;
+}
+
+.play-large svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.play:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.seek {
+  width: 100%;
+  accent-color: var(--signal);
+}
+
+.times {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.compact .select {
+  width: auto;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.compact input[type='range'] {
+  width: 6rem;
+  accent-color: var(--signal);
+}
+
+.parts h2,
+.rating legend {
+  font-family: var(--sans);
+  font-size: var(--step-0);
+}
+
+.parts ol {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.part {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.part:hover {
+  color: var(--ink);
+}
+
+.part[aria-current='true'] {
+  color: var(--ink);
+  background: var(--housing);
+  font-weight: 600;
+}
+
+.rating {
+  margin: 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- Read-along ---------- */
+
+.read-along {
+  font-family: var(--serif);
+  font-size: var(--step-1);
+  line-height: 1.75;
+  max-width: 38rem;
+}
+
+.read-section + .read-section {
+  margin-top: 2.5rem;
+}
+
+.read-section h2 {
+  font-size: var(--step-1);
+  color: var(--muted);
+}
+
+.read-along p {
+  margin: 0 0 1.1em;
+}
+
+.transcript-sentence {
+  padding: 0.05em 0.1em;
+  border-radius: 3px;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.transcript-sentence:hover {
+  background: color-mix(in srgb, var(--highlight) 35%, transparent);
+}
+
+/* The highlighter: the one bright thing on the page. */
+.transcript-sentence[data-active] {
+  background: var(--highlight);
+}
+
+.follow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+/* ---------- Generation progress ---------- */
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+}
+
+.steps li::before {
+  content: '';
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  flex: none;
+}
+
+.steps li[data-state='active'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.steps li[data-state='active']::before {
+  border-color: var(--signal);
+}
+
+.steps li[data-state='done']::before {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .steps li[data-state='active']::before {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--signal) 25%, transparent);
+  }
+}
+
+@media (max-width: 52rem) {
+  .listen {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding-top: 1rem;
+  }
+
+  /* On phones the console becomes a bar pinned to the bottom; parts and rating move below the text. */
+  .console {
+    position: static;
+  }
+
+  .controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    margin: 0;
+    padding: 0.6rem var(--gutter) calc(0.6rem + env(safe-area-inset-bottom));
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+  }
+
+  .listen {
+    padding-bottom: 14rem;
+  }
+
+  .read-along {
+    font-size: 1.15rem;
+  }
+}
