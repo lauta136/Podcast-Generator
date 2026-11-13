@@ -18,6 +18,9 @@ public interface IEpisodeService
     Task RateAsync(Guid episodeId, DifficultyRating rating, CancellationToken ct);
     Task DeleteAsync(Guid episodeId, CancellationToken ct);
     Task<Stream> OpenAudioAsync(Guid episodeId, CancellationToken ct);
+    Task<EpisodePage> ListAsync(EpisodeQuery query, CancellationToken ct);
+    Task<ListeningProgress> GetListeningProgressAsync(Guid episodeId, CancellationToken ct);
+    Task<ListeningProgress> SaveListeningProgressAsync(Guid episodeId, double positionSec, bool completed, CancellationToken ct);
     Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, decimal? speakingRate, CancellationToken ct);
 }
 
@@ -32,6 +35,8 @@ public class EpisodeService(
     TimeProvider clock) : IEpisodeService
 {
     public const int MaxTopicLength = 500;
+    public const int MaxPageSize = 100;
+    public const int MaxSearchLength = 200;
 
     /// <summary>Validates and queues the episode. Generation happens in the background worker, never here.</summary>
     public async Task<Episode> CreateAsync(CreateEpisode request, CancellationToken ct)
@@ -160,6 +165,62 @@ public class EpisodeService(
         {
             await storage.DeleteAsync(key, ct); // after the DB delete: a crash leaves orphan files, never broken episodes
         }
+    }
+
+    public Task<EpisodePage> ListAsync(EpisodeQuery query, CancellationToken ct)
+    {
+        if (query.Page < 1)
+        {
+            throw new RequestValidationException(nameof(query.Page), "Must be 1 or more.");
+        }
+
+        if (query.PageSize is < 1 or > MaxPageSize)
+        {
+            throw new RequestValidationException(nameof(query.PageSize), $"Must be between 1 and {MaxPageSize}.");
+        }
+
+        if (query.Search?.Length > MaxSearchLength)
+        {
+            throw new RequestValidationException(nameof(query.Search), $"At most {MaxSearchLength} characters.");
+        }
+
+        return episodes.ListAsync(currentUser.UserId, query, ct);
+    }
+
+    /// <summary>Where the user stopped. An episode never played starts at 0.</summary>
+    public async Task<ListeningProgress> GetListeningProgressAsync(Guid episodeId, CancellationToken ct)
+    {
+        _ = await episodes.GetAsync(currentUser.UserId, episodeId, ct) ?? throw NotFound(episodeId);
+        return await episodes.GetProgressAsync(currentUser.UserId, episodeId, ct)
+            ?? new ListeningProgress { UserId = currentUser.UserId, EpisodeId = episodeId };
+    }
+
+    public async Task<ListeningProgress> SaveListeningProgressAsync(Guid episodeId, double positionSec, bool completed, CancellationToken ct)
+    {
+        var episode = await episodes.GetAsync(currentUser.UserId, episodeId, ct) ?? throw NotFound(episodeId);
+        if (episode.Status != EpisodeStatus.Ready)
+        {
+            throw new ConflictException("Progress can only be saved for finished episodes.");
+        }
+
+        if (!double.IsFinite(positionSec) || positionSec < 0)
+        {
+            throw new RequestValidationException(nameof(ListeningProgress.PositionSec), "Must be a position of 0 seconds or more.");
+        }
+
+        var progress = await episodes.GetProgressAsync(currentUser.UserId, episodeId, ct);
+        if (progress is null)
+        {
+            progress = new ListeningProgress { UserId = currentUser.UserId, EpisodeId = episodeId };
+            episodes.AddProgress(progress);
+        }
+
+        // Players report a little past the end; keep the position inside the audio.
+        progress.PositionSec = episode.AudioDurationSec is { } length ? Math.Min(positionSec, length) : positionSec;
+        progress.Completed = completed;
+        progress.UpdatedAt = clock.GetUtcNow();
+        await episodes.SaveChangesAsync(ct);
+        return progress;
     }
 
     public async Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, decimal? speakingRate, CancellationToken ct)

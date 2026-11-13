@@ -33,6 +33,47 @@ public class EpisodeRepository(AppDbContext db) : IEpisodeRepository
             .Select(e => e.DifficultyRating!.Value)
             .ToListAsync(ct);
 
+    public async Task<EpisodePage> ListAsync(Guid userId, EpisodeQuery query, CancellationToken ct)
+    {
+        var episodes = db.Episodes.AsNoTracking().Where(e => e.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            // Escape LIKE wildcards: the user's text is matched literally.
+            var pattern = "%" + query.Search.Trim().Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+            episodes = episodes.Where(e =>
+                EF.Functions.ILike(e.Title ?? "", pattern, @"\") || EF.Functions.ILike(e.Topic, pattern, @"\"));
+        }
+
+        if (query.Level is { } level)
+        {
+            episodes = episodes.Where(e => e.Level == level);
+        }
+
+        if (query.Status is { } status)
+        {
+            episodes = episodes.Where(e => e.Status == status);
+        }
+
+        var total = await episodes.CountAsync(ct);
+        var rows = await episodes
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(e => new
+            {
+                Episode = e,
+                Progress = db.ListeningProgress.FirstOrDefault(p => p.UserId == userId && p.EpisodeId == e.Id),
+            })
+            .ToListAsync(ct);
+
+        return new EpisodePage([.. rows.Select(r => new EpisodeListItem(r.Episode, r.Progress))], total, query.Page, query.PageSize);
+    }
+
+    public Task<ListeningProgress?> GetProgressAsync(Guid userId, Guid episodeId, CancellationToken ct) =>
+        db.ListeningProgress.SingleOrDefaultAsync(p => p.UserId == userId && p.EpisodeId == episodeId, ct);
+
+    public void AddProgress(ListeningProgress progress) => db.ListeningProgress.Add(progress);
+
     public void Remove(Episode episode) => db.Episodes.Remove(episode);
 
     public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);

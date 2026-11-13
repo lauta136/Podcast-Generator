@@ -24,6 +24,47 @@ public sealed class CreateEpisodeRequest
     public decimal? SpeakingRate { get; init; }
 }
 
+public sealed class SaveProgressRequest
+{
+    [Required]
+    public double? PositionSec { get; init; }
+
+    public bool Completed { get; init; }
+}
+
+public sealed record ProgressDto(double PositionSec, bool Completed, DateTimeOffset? UpdatedAt)
+{
+    public static ProgressDto From(ListeningProgress p) =>
+        new(p.PositionSec, p.Completed, p.UpdatedAt == default ? null : p.UpdatedAt);
+}
+
+public sealed record EpisodeListItemDto(
+    Guid Id,
+    string? Title,
+    string Topic,
+    CefrLevel Level,
+    EpisodeStyle Style,
+    int DurationMin,
+    decimal SpeakingRate,
+    EpisodeStatus Status,
+    double? AudioDurationSec,
+    DifficultyRating? DifficultyRating,
+    DateTimeOffset CreatedAt,
+    ProgressDto? Progress)
+{
+    public static EpisodeListItemDto From(EpisodeListItem item)
+    {
+        var e = item.Episode;
+        return new(e.Id, e.Title, e.Topic, e.Level, e.Style, e.DurationMin, e.SpeakingRate, e.Status, e.AudioDurationSec,
+            e.DifficultyRating, e.CreatedAt, item.Progress is null ? null : ProgressDto.From(item.Progress));
+    }
+}
+
+public sealed record EpisodePageDto(IReadOnlyList<EpisodeListItemDto> Items, int Total, int Page, int PageSize)
+{
+    public static EpisodePageDto From(EpisodePage p) => new([.. p.Items.Select(EpisodeListItemDto.From)], p.Total, p.Page, p.PageSize);
+}
+
 public sealed class RateEpisodeRequest
 {
     [Required, EnumDataType(typeof(DifficultyRating))]
