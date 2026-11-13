@@ -91,8 +91,17 @@ public sealed partial class OpenAiCompatibleLlmProvider(
                 using var response = await http.SendAsync(message, ct);
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<ChatResponse>(Json, ct);
-                    return (result?.Choices is [var choice, ..] ? choice.Message.Content : null)
+                    ChatResponse? result;
+                    try
+                    {
+                        result = await response.Content.ReadFromJsonAsync<ChatResponse>(Json, ct);
+                    }
+                    catch (JsonException e)
+                    {
+                        throw new LlmInvalidResponseException($"The reply was not valid JSON: {e.Message}", "");
+                    }
+
+                    return (result?.Choices is [{ Message: { } reply }, ..] ? reply.Content : null)
                         ?? throw new LlmInvalidResponseException("The reply had no message content.", "");
                 }
 
@@ -183,7 +192,7 @@ public sealed partial class OpenAiCompatibleLlmProvider(
 
     private sealed record ResponseFormat(string Type);
 
-    private sealed record ChatResponse(IReadOnlyList<ChatChoice> Choices);
+    private sealed record ChatResponse(IReadOnlyList<ChatChoice>? Choices);
 
-    private sealed record ChatChoice(ChatMessage Message);
+    private sealed record ChatChoice(ChatMessage? Message);
 }

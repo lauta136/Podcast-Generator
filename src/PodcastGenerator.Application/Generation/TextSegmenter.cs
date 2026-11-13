@@ -13,9 +13,12 @@ public static partial class TextSegmenter
         "evtl", "ggf", "prof", "str", "bspw", "jh", "mio", "mrd", "chr", "v", "n",
     };
 
+    /// <summary>Removes control characters (except whitespace). PostgreSQL rejects \u0000 in text and jsonb.</summary>
+    public static string StripControlChars(string text) => ControlChars().Replace(text, "");
+
     public static string CleanForSpeech(string text)
     {
-        var s = StageDirection().Replace(text, " ");
+        var s = StageDirection().Replace(StripControlChars(text), " ");
         s = MarkdownChars().Replace(s, "");
         s = Whitespace().Replace(s, " ");
         return s.Trim();
@@ -117,4 +120,7 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
+
+    [GeneratedRegex(@"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")]
+    private static partial Regex ControlChars();
 }

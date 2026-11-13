@@ -17,6 +17,9 @@ public class TtsOptions
         [TtsModelFamily.Chirp3HD] = new() { MonthlyChars = 900_000 },
     };
 
+    /// <summary>Time zone of the provider's billing month (IANA id). Google Cloud uses Pacific time.</summary>
+    public string BillingTimeZone { get; set; } = "America/Los_Angeles";
+
     /// <summary>Voice used when the user hasn't picked one.</summary>
     public Dictionary<TtsModelFamily, string> DefaultVoices { get; set; } = new()
     {

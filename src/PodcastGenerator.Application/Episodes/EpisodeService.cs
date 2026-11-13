@@ -42,12 +42,7 @@ public class EpisodeService(
         var duration = request.DurationMin ?? prefs.DefaultDurationMin;
         var topic = ResolveTopic(request, prefs);
 
-        if (duration < o.MinDurationMin || duration > o.MaxDurationMin)
-        {
-            throw new RequestValidationException(nameof(request.DurationMin), $"Must be between {o.MinDurationMin} and {o.MaxDurationMin} minutes.");
-        }
-
-        // Refuse up front rather than generate text that can't be voiced this month.
+        // Validates duration and speed too. Refuse up front rather than generate text that can't be voiced this month.
         var estimate = await EstimateAsync(level, duration, request.SpeakingRate, ct);
         if (!estimate.FitsBudget)
         {
@@ -67,7 +62,8 @@ public class EpisodeService(
             Style = request.Style,
             DurationMin = duration,
             TargetWords = estimate.TargetWords,
-            VoiceName = prefs.VoiceName,
+            // Resolved now, so a later change of the configured default voice can't invalidate finished audio.
+            VoiceName = ttsOptions.Value.ResolveVoice(prefs.VoiceName, prefs.VoiceModelFamily),
             VoiceModelFamily = prefs.VoiceModelFamily,
             SpeakingRate = estimate.SpeakingRate,
             CreatedAt = now,
@@ -132,9 +128,19 @@ public class EpisodeService(
     public async Task<Stream> OpenAudioAsync(Guid episodeId, CancellationToken ct)
     {
         var episode = await episodes.GetAsync(currentUser.UserId, episodeId, ct) ?? throw NotFound(episodeId);
-        return episode is { Status: EpisodeStatus.Ready, AudioStorageKey: { } key }
-            ? await storage.OpenReadAsync(key, ct)
-            : throw new NotFoundException($"Episode {episodeId} has no audio yet (status: {episode.Status}).");
+        if (episode is not { Status: EpisodeStatus.Ready, AudioStorageKey: { } key })
+        {
+            throw new NotFoundException($"Episode {episodeId} has no audio yet (status: {episode.Status}).");
+        }
+
+        try
+        {
+            return await storage.OpenReadAsync(key, ct);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new NotFoundException($"The audio file of episode {episodeId} is missing from storage.");
+        }
     }
 
     /// <summary>Deletes the episode and all of its audio files.</summary>
@@ -162,10 +168,15 @@ public class EpisodeService(
         var lvl = level ?? prefs.DefaultLevel;
         var minutes = durationMin ?? prefs.DefaultDurationMin;
         var rate = speakingRate ?? prefs.SpeakingRate ?? options.Value.SpeakingRateFor(lvl);
-        if (rate < options.Value.MinSpeakingRate || rate > options.Value.MaxSpeakingRate)
+        var o = options.Value;
+        if (minutes < o.MinDurationMin || minutes > o.MaxDurationMin)
         {
-            throw new RequestValidationException(
-                nameof(CreateEpisode.SpeakingRate), $"Must be between {options.Value.MinSpeakingRate} and {options.Value.MaxSpeakingRate}.");
+            throw new RequestValidationException(nameof(CreateEpisode.DurationMin), $"Must be between {o.MinDurationMin} and {o.MaxDurationMin} minutes.");
+        }
+
+        if (o.SpeakingRateError(rate) is { } rateError)
+        {
+            throw new RequestValidationException(nameof(CreateEpisode.SpeakingRate), rateError);
         }
 
         // Slower speech fills the same minutes with fewer words.

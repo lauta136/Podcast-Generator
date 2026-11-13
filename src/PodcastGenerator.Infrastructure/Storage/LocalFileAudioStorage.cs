@@ -15,7 +15,8 @@ public class StorageOptions
 /// <summary>Stores audio as files. Keys are relative paths like "episodes/{id}/episode.mp3".</summary>
 public class LocalFileAudioStorage(IOptions<StorageOptions> options, IHostEnvironment env) : IAudioStorage
 {
-    private string Root => Path.GetFullPath(Path.Combine(env.ContentRootPath, options.Value.LocalPath));
+    // Trimmed: "/var/audio/" would otherwise become "/var/audio//" in the escape check and reject every key.
+    private string Root => Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(env.ContentRootPath, options.Value.LocalPath)));
 
     public async Task<string> SaveAsync(string key, Stream audio, string contentType, CancellationToken ct)
     {
@@ -43,6 +44,8 @@ public class LocalFileAudioStorage(IOptions<StorageOptions> options, IHostEnviro
 
         return Task.FromResult<Stream>(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true));
     }
+
+    public Task<bool> ExistsAsync(string key, CancellationToken ct) => Task.FromResult(File.Exists(PathFor(key)));
 
     public Task DeleteAsync(string key, CancellationToken ct)
     {

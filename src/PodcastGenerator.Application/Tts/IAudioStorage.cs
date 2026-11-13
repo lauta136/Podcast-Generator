@@ -7,5 +7,7 @@ public interface IAudioStorage
     /// <summary>Opens a seekable stream (needed for HTTP Range requests).</summary>
     Task<Stream> OpenReadAsync(string key, CancellationToken ct);
 
+    Task<bool> ExistsAsync(string key, CancellationToken ct);
+
     Task DeleteAsync(string key, CancellationToken ct);
 }

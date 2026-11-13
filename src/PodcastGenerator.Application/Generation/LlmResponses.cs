@@ -2,9 +2,10 @@ namespace PodcastGenerator.Application.Generation;
 
 public sealed class OutlineResponse
 {
-    public string Title { get; set; } = "";
-    public string Description { get; set; } = "";
-    public List<OutlineSection> Sections { get; set; } = [];
+    // JSON null must not crash validation: the reply would then skip its repair attempt.
+    public string Title { get; set => field = value ?? ""; } = "";
+    public string Description { get; set => field = value ?? ""; } = "";
+    public List<OutlineSection> Sections { get; set => field = value?.Where(s => s is not null).ToList() ?? []; } = [];
 
     public IReadOnlyList<string> Validate(int expectedSections)
     {
@@ -40,8 +41,8 @@ public sealed class OutlineSection
 
 public sealed class SectionResponse
 {
-    public List<string> Paragraphs { get; set; } = [];
-    public string Recap { get; set; } = "";
+    public List<string> Paragraphs { get; set => field = value?.Where(p => p is not null).ToList() ?? []; } = [];
+    public string Recap { get; set => field = value ?? ""; } = "";
 
     public IReadOnlyList<string> Validate(int targetWords)
     {
@@ -68,8 +69,8 @@ public sealed class ProofreadResponse
     /// <summary>Allowed drift in words per paragraph: fixes change a word or two, never whole sentences.</summary>
     public const double MaxLengthChange = 0.1;
 
-    public List<string> Paragraphs { get; set; } = [];
-    public List<ProofreadCorrection> Corrections { get; set; } = [];
+    public List<string> Paragraphs { get; set => field = value?.Where(p => p is not null).ToList() ?? []; } = [];
+    public List<ProofreadCorrection> Corrections { get; set => field = value?.Where(c => c is not null).ToList() ?? []; } = [];
 
     public IReadOnlyList<string> Validate(IReadOnlyList<string> original)
     {

@@ -63,20 +63,26 @@ public sealed partial class GenerationWorker(
 
         LogJobStarted(logger, job.EpisodeId);
         using var heartbeatStop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        var heartbeat = KeepLeaseAsync(job.JobId, lease, heartbeatStop.Token);
+        using var leaseLost = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        var heartbeat = KeepLeaseAsync(job, lease, leaseLost, heartbeatStop.Token);
 
         try
         {
             await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<IEpisodeGenerator>().RunAsync(job.EpisodeId, stoppingToken);
+            await scope.ServiceProvider.GetRequiredService<IEpisodeGenerator>().RunAsync(job.EpisodeId, leaseLost.Token);
             await FinishAsync(job, error: null);
             LogJobCompleted(logger, job.EpisodeId);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<JobLeases>().ReleaseAsync(job.JobId, CancellationToken.None);
+            await scope.ServiceProvider.GetRequiredService<JobLeases>().ReleaseAsync(job, CancellationToken.None);
             throw;
+        }
+        catch (OperationCanceledException) when (leaseLost.IsCancellationRequested)
+        {
+            // Another worker owns the job now; it resumes from the persisted steps. Writing anything here would clash.
+            LogLeaseLost(logger, job.EpisodeId);
         }
         catch (TtsBudgetExceededException e)
         {
@@ -104,9 +110,9 @@ public sealed partial class GenerationWorker(
         var episodes = scope.ServiceProvider.GetRequiredService<IEpisodeRepository>();
         var jobEntity = await episodes.GetJobAsync(job.EpisodeId, CancellationToken.None);
         var episode = await episodes.GetForGenerationAsync(job.EpisodeId, CancellationToken.None);
-        if (jobEntity is null || episode is null)
+        if (jobEntity is null || episode is null || jobEntity.Attempts != job.Attempt)
         {
-            return; // deleted while generating
+            return; // deleted while generating, or claimed by another worker after our lease expired
         }
 
         if (error is null)
@@ -125,24 +131,32 @@ public sealed partial class GenerationWorker(
         await episodes.SaveChangesAsync(CancellationToken.None);
     }
 
-    private async Task KeepLeaseAsync(Guid jobId, TimeSpan lease, CancellationToken ct)
+    /// <summary>
+    /// Renews the lease every lease/3. A failed renewal is logged and retried on the next tick (two more chances
+    /// before expiry). If the job turns out to belong to someone else, the run is cancelled.
+    /// </summary>
+    private async Task KeepLeaseAsync(ClaimedJob job, TimeSpan lease, CancellationTokenSource leaseLost, CancellationToken ct)
     {
-        try
+        while (!ct.IsCancellationRequested)
         {
-            while (true)
+            try
             {
                 await Task.Delay(lease / 3, clock, ct);
                 await using var scope = scopes.CreateAsyncScope();
-                await scope.ServiceProvider.GetRequiredService<JobLeases>().ExtendLeaseAsync(jobId, lease, ct);
+                if (!await scope.ServiceProvider.GetRequiredService<JobLeases>().ExtendLeaseAsync(job, lease, ct))
+                {
+                    await leaseLost.CancelAsync();
+                    return;
+                }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // job finished
-        }
-        catch (Exception e)
-        {
-            LogWorkerError(logger, e);
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return; // job finished
+            }
+            catch (Exception e)
+            {
+                LogHeartbeatError(logger, e, job.EpisodeId);
+            }
         }
     }
 
@@ -157,6 +171,12 @@ public sealed partial class GenerationWorker(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} paused: {Reason}")]
     private static partial void LogJobPaused(ILogger logger, Guid episodeId, string reason);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId}: lease renewal failed, retrying")]
+    private static partial void LogHeartbeatError(ILogger logger, Exception e, Guid episodeId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId}: lease lost to another worker, stopping this run")]
+    private static partial void LogLeaseLost(ILogger logger, Guid episodeId);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Generation worker error")]
     private static partial void LogWorkerError(ILogger logger, Exception e);

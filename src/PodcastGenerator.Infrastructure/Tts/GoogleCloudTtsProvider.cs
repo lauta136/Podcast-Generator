@@ -31,7 +31,7 @@ public sealed class GoogleCloudTtsProvider(HttpClient http, IOptions<GoogleTtsOp
 
         // "./" matters: a bare "text:synthesize" is an absolute URI with the scheme "text", not a path.
         using var message = new HttpRequestMessage(HttpMethod.Post, "./text:synthesize") { Content = JsonContent.Create(body, options: Json) };
-        var response = await SendAsync(message, ct);
+        using var response = await SendAsync(message, ct);
         var result = await response.Content.ReadFromJsonAsync<SynthesizeResponse>(Json, ct);
         if (string.IsNullOrEmpty(result?.AudioContent))
         {
@@ -46,21 +46,15 @@ public sealed class GoogleCloudTtsProvider(HttpClient http, IOptions<GoogleTtsOp
     public async Task<IReadOnlyList<VoiceInfo>> GetVoicesAsync(string languageCode, CancellationToken ct)
     {
         using var message = new HttpRequestMessage(HttpMethod.Get, $"voices?languageCode={Uri.EscapeDataString(languageCode)}");
-        var response = await SendAsync(message, ct);
+        using var response = await SendAsync(message, ct);
         var result = await response.Content.ReadFromJsonAsync<VoicesResponse>(Json, ct);
         return (result?.Voices ?? [])
-            .Select(v => (Voice: v, Family: FamilyOf(v.Name)))
+            .Select(v => (Voice: v, Family: VoiceFamilies.Of(v.Name)))
             .Where(x => x.Family is not null)
             .Select(x => new VoiceInfo(x.Voice.Name, x.Voice.LanguageCodes is [var code, ..] ? code : languageCode, x.Voice.SsmlGender ?? "", x.Family!.Value))
             .OrderBy(v => v.ModelFamily).ThenBy(v => v.Name, StringComparer.Ordinal)
             .ToList();
     }
-
-    /// <summary>Only the families the app budgets for; Standard, Neural2, Studio etc. are not offered.</summary>
-    public static TtsModelFamily? FamilyOf(string voiceName) =>
-        voiceName.Contains("-Wavenet-", StringComparison.OrdinalIgnoreCase) ? TtsModelFamily.WaveNet
-        : voiceName.Contains("-Chirp3-HD-", StringComparison.OrdinalIgnoreCase) ? TtsModelFamily.Chirp3HD
-        : null;
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage message, CancellationToken ct)
     {

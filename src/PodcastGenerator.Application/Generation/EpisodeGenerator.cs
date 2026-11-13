@@ -78,8 +78,8 @@ public partial class EpisodeGenerator(
             {
                 Order = i,
                 Title = Limit(TextSegmenter.CleanForSpeech(s.Title), 200),
-                Summary = Limit(s.Summary.Trim(), 2000),
-                Focus = s.Focus is null ? null : Limit(s.Focus.Trim(), 300),
+                Summary = Limit(TextSegmenter.StripControlChars(s.Summary).Trim(), 2000),
+                Focus = s.Focus is null ? null : Limit(TextSegmenter.StripControlChars(s.Focus).Trim(), 300),
                 TargetWords = episode.TargetWords / count,
             });
         }
@@ -128,7 +128,17 @@ public partial class EpisodeGenerator(
         {
             section.Status = StepStatus.Failed;
             section.LastError = GenerationState.Truncate(e.Message);
-            await episodes.SaveChangesAsync(CancellationToken.None);
+            try
+            {
+                await episodes.SaveChangesAsync(CancellationToken.None);
+            }
+            catch (Exception saveError) when (saveError is not OperationCanceledException)
+            {
+                // If the failing call was itself a save, this one fails too. Keep the original error: the
+                // worker records it on the episode through a fresh context.
+                LogFailureNotSaved(logger, episode.Id, section.Order + 1, saveError.Message);
+            }
+
             throw;
         }
     }
@@ -146,7 +156,15 @@ public partial class EpisodeGenerator(
             var proofread = await ValidatedJson.GenerateAsync<ProofreadResponse>(
                 llm, PromptBuilder.Proofread(episode, paragraphs), r => r.Validate(paragraphs), ct);
             section.CorrectionsJson = JsonSerializer.Serialize(
-                proofread.Corrections.Where(c => c.Original != c.Corrected).ToList(), DraftJson);
+                proofread.Corrections
+                    .Where(c => c.Original != c.Corrected)
+                    .Select(c => new ProofreadCorrection
+                    {
+                        Original = TextSegmenter.StripControlChars(c.Original ?? ""),
+                        Corrected = TextSegmenter.StripControlChars(c.Corrected ?? ""),
+                    })
+                    .ToList(),
+                DraftJson);
             return TextSegmenter.FitParagraphs(
                 proofread.Paragraphs.Select(TextSegmenter.CleanForSpeech).Where(p => p.Length > 0),
                 options.Value.MaxParagraphChars);
@@ -171,7 +189,7 @@ public partial class EpisodeGenerator(
             response.Paragraphs.Select(TextSegmenter.CleanForSpeech).Where(p => p.Length > 0),
             options.Value.MaxParagraphChars);
 
-        var draft = new SectionDraft(paragraphs, response.Recap);
+        var draft = new SectionDraft(paragraphs, TextSegmenter.StripControlChars(response.Recap));
         section.DraftJson = JsonSerializer.Serialize(draft, DraftJson);
         await episodes.SaveChangesAsync(ct); // persisted before proofreading: never paid for twice
         return draft;
@@ -193,10 +211,16 @@ public partial class EpisodeGenerator(
             return false;
         }
 
-        var closing = Ordered(episode).Last();
-        var insertAt = closing.Order;
-        closing.Order = insertAt + 1;
-        await episodes.SaveChangesAsync(ct); // free the slot first: (EpisodeId, Order) is unique
+        // Slot right after the last middle section. Computed from that section, not from the closing one, so a
+        // crash between the two saves below (closing already moved) doesn't move it again and leave a gap.
+        var ordered = Ordered(episode).ToList();
+        var closing = ordered[^1];
+        var insertAt = ordered[^2].Order + 1;
+        if (closing.Order != insertAt + 1)
+        {
+            closing.Order = insertAt + 1;
+            await episodes.SaveChangesAsync(ct); // free the slot first: (EpisodeId, Order) is unique
+        }
 
         episode.Sections.Add(new EpisodeSection
         {
@@ -226,6 +250,9 @@ public partial class EpisodeGenerator(
     private static IEnumerable<EpisodeSection> Ordered(Episode episode) => episode.Sections.OrderBy(s => s.Order);
 
     private static string Limit(string s, int max) => s.Length <= max ? s : s[..max];
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} section {Section}: could not save the failure: {Reason}")]
+    private static partial void LogFailureNotSaved(ILogger logger, Guid episodeId, int section, string reason);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Episode {EpisodeId} section {Section}: proofreading rejected, keeping the draft: {Reason}")]
     private static partial void LogProofreadSkipped(ILogger logger, Guid episodeId, int section, string reason);

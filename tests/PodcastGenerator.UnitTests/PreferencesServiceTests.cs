@@ -84,6 +84,48 @@ public class PreferencesServiceTests
         Assert.Null((await service.UpdateAsync(ValidRequest() with { SpeakingRate = null }, CancellationToken.None)).SpeakingRate);
     }
 
+    [Theory]
+    [InlineData("de-DE-Chirp3-HD-Charon", TtsModelFamily.WaveNet)] // would be billed as Chirp but counted as WaveNet
+    [InlineData("de-DE-Wavenet-H", TtsModelFamily.Chirp3HD)]
+    [InlineData("de-DE-Studio-B", TtsModelFamily.WaveNet)] // a family with no budget at all
+    public async Task Update_rejects_a_voice_that_does_not_match_the_budgeted_family(string voice, TtsModelFamily family)
+    {
+        var request = ValidRequest() with { VoiceName = voice, VoiceModelFamily = family };
+
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(
+            () => CreateService().UpdateAsync(request, CancellationToken.None));
+
+        Assert.Contains(nameof(UpdatePreferences.VoiceName), ex.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Update_accepts_a_matching_voice() =>
+        Assert.Equal("de-DE-Chirp3-HD-Charon", (await CreateService().UpdateAsync(
+            ValidRequest() with { VoiceName = "de-DE-Chirp3-HD-Charon", VoiceModelFamily = TtsModelFamily.Chirp3HD },
+            CancellationToken.None)).VoiceName);
+
+    [Fact]
+    public async Task Update_rejects_null_or_overlong_interests()
+    {
+        foreach (var interests in new[] { null!, new[] { "history", null! }, new[] { new string('x', PreferencesService.MaxInterestLength + 1) } })
+        {
+            var ex = await Assert.ThrowsAsync<RequestValidationException>(
+                () => CreateService().UpdateAsync(ValidRequest() with { Interests = interests }, CancellationToken.None));
+            Assert.Contains(nameof(UpdatePreferences.Interests), ex.Errors.Keys);
+        }
+    }
+
+    [Fact]
+    public async Task Get_reads_the_row_another_request_created_first()
+    {
+        var winner = new UserPreferences { UserId = UserId, DefaultLevel = CefrLevel.C1 };
+        _repository.RaceWith(winner);
+
+        var prefs = await CreateService().GetAsync(CancellationToken.None);
+
+        Assert.Same(winner, prefs);
+    }
+
     [Fact]
     public async Task Update_rejects_unsupported_target_language()
     {
@@ -103,12 +145,36 @@ public class PreferencesServiceTests
     private sealed class FakeRepository : IPreferencesRepository
     {
         private UserPreferences? _stored;
+        private UserPreferences? _racer;
+
+        /// <summary>Simulates another request inserting this row between our read and our insert.</summary>
+        public void RaceWith(UserPreferences row) => _racer = row;
 
         public int Saves { get; private set; }
 
-        public Task<UserPreferences?> GetAsync(Guid userId, CancellationToken ct) => Task.FromResult(_stored);
+        public Task<UserPreferences?> GetAsync(Guid userId, CancellationToken ct)
+        {
+            var current = _stored;
+            if (_racer is not null)
+            {
+                _stored = _racer;
+                _racer = null;
+            }
 
-        public void Add(UserPreferences preferences) => _stored = preferences;
+            return Task.FromResult(current);
+        }
+
+        public Task<bool> TryAddAsync(UserPreferences preferences, CancellationToken ct)
+        {
+            if (_stored is not null)
+            {
+                return Task.FromResult(false);
+            }
+
+            _stored = preferences;
+            Saves++;
+            return Task.FromResult(true);
+        }
 
         public Task SaveChangesAsync(CancellationToken ct)
         {

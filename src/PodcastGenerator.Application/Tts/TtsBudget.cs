@@ -18,9 +18,14 @@ public class TtsBudget(ITtsUsageRepository usage, IOptions<TtsOptions> options, 
     /// <summary>Google bills WaveNet/Standard by bytes; ä, ö, ü and ß are 2 bytes in UTF-8. Counting bytes is never lower.</summary>
     public static int BillableChars(string text) => Encoding.UTF8.GetByteCount(text);
 
+    /// <summary>
+    /// The billing month as the provider counts it. Google Cloud billing months follow Pacific time, so on the
+    /// 1st before 08:00 UTC Google is still counting the previous month; a UTC month would reset too early.
+    /// </summary>
     public DateOnly CurrentMonth()
     {
-        var now = clock.GetUtcNow();
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(options.Value.BillingTimeZone);
+        var now = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), zone);
         return new DateOnly(now.Year, now.Month, 1);
     }
 
