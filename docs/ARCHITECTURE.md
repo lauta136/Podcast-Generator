@@ -45,6 +45,16 @@ flowchart TD
 - **Speaking speed and length.** Level picks the language, speaking speed picks the pace, and both feed the length. The first real episode came out at 8.3 instead of 10 minutes, because WaveNet reads ~160 words/min and the old per-level estimate assumed 125. Now each voice family has a measured pace (`Tts:Pace`), and `speakingRate` scales it. WaveNet durations scale exactly with the rate (0.85× → 1.17× longer). Chirp 3: HD only scales by about two thirds as much (0.75× → 1.21× longer), so its pace has an exponent of 0.66. Speed is resolved once at creation (request, then preferences, then level default) and stored on the episode, so a retry voices the rest at the same speed. It is part of each chunk's cache key.
 - **Length prompting.** Measured on Gemini, asking for "about N words" produced ~70% of N. Section prompts (`section.v2`) ask for a minimum word count *and* a paragraph count of ~100 words each, which brought sections to ~85%.
 
+## Frontend
+`web/` is React + TypeScript + Vite, with React Router and plain `fetch`. There's no state library, UI kit or icon package.
+- `api/client.ts` is the only place that calls the API. It turns `ProblemDetails` into an `ApiError`, whose `fieldErrors` use the form's camelCase names, so validation messages show next to the right field.
+- `useApi` loads data for a screen and cancels the previous request when inputs change. Every screen has loading, empty and error states.
+- **Persistent player.** `PlayerProvider` owns the app's only `<audio>` element, above the router, so playback continues across pages and the mini-player can control it. It saves the resume position every 5 s while playing, on pause, at the end, and when the tab is hidden (with a `keepalive` request so it survives closing the tab).
+- **Read-along.** Transcript sentences are inline spans with `role="button"`, not `<button>`s, because buttons render inline-block and would break the paragraph flow. A binary search over sentence start times finds the current sentence, and it's scrolled into view unless the listener turns that off.
+- **Generation progress.** The episode page polls `/status` every 2.5 s while the episode is being made, and switches to the player when it's Ready.
+- **Library filters live in the URL,** so reloads and back/forward keep them.
+- **Design.** It's styled as a quiet device: warm-grey housing, ink, and one green signal colour. The transcript is the one loud element, in a book serif (Charter) with a highlighter-yellow current sentence. It uses system fonts only, so the app makes no third-party requests. Dark mode follows the system.
+
 ## Entities
 ```mermaid
 erDiagram
