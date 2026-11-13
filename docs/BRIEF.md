@@ -19,11 +19,13 @@ One learner in the MVP (seeded local user). Registration and login come right af
 - Default episode length (minutes).
 - Interests (free-text list), used by "Surprise me".
 - Voice (from the provider's German voice catalog) and voice quality: Standard (WaveNet) or Premium (Chirp 3: HD).
-- Default playback speed.
+- Speaking speed: how fast the voice speaks in new episodes. Each level has a default (slower for lower levels, e.g. 0.85× at B1); the learner can pick a fixed speed instead. Level and speed are separate on purpose, so a learner can move up one step at a time: first faster speech at the same level, then harder language at a comfortable speed.
+- Default playback speed (the player's live speed control, on top of the speaking speed).
 
 ### Create Episode
 - Topic: free text, or "Surprise me" (picked from interests).
 - Level (prefilled from preferences, can be overridden per episode).
+- Speaking speed (prefilled from preferences or the level default, can be overridden per episode). Length stays in minutes: slower speech means fewer words for the same duration.
 - Length: 5–60 minutes (max is configurable).
 - Optional style: conversational monologue, storytelling, news-style explainer.
 - Shows an estimate before submitting: word count, characters to synthesize, and the share of this month's free TTS budget it uses. Submission is blocked if it would exceed the remaining budget.

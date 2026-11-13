@@ -13,6 +13,7 @@ public sealed record PreferencesDto(
     string? VoiceName,
     TtsModelFamily VoiceModelFamily,
     decimal PlaybackSpeed,
+    decimal? SpeakingRate,
     DateTimeOffset UpdatedAt)
 {
     public static PreferencesDto From(UserPreferences p) => new(
@@ -24,6 +25,7 @@ public sealed record PreferencesDto(
         p.VoiceName,
         p.VoiceModelFamily,
         p.PlaybackSpeed,
+        p.SpeakingRate,
         p.UpdatedAt);
 }
 
@@ -51,4 +53,7 @@ public sealed class UpdatePreferencesRequest
 
     [Range(typeof(decimal), "0.75", "2.0", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true)]
     public decimal PlaybackSpeed { get; init; } = 1.0m;
+
+    /// <summary>Voice speed for new episodes; null follows the level's default. Range is checked against config.</summary>
+    public decimal? SpeakingRate { get; init; }
 }

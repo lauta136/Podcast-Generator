@@ -18,7 +18,7 @@ public interface IEpisodeService
     Task RateAsync(Guid episodeId, DifficultyRating rating, CancellationToken ct);
     Task DeleteAsync(Guid episodeId, CancellationToken ct);
     Task<Stream> OpenAudioAsync(Guid episodeId, CancellationToken ct);
-    Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, CancellationToken ct);
+    Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, decimal? speakingRate, CancellationToken ct);
 }
 
 public class EpisodeService(
@@ -48,7 +48,7 @@ public class EpisodeService(
         }
 
         // Refuse up front rather than generate text that can't be voiced this month.
-        var estimate = await EstimateAsync(level, duration, ct);
+        var estimate = await EstimateAsync(level, duration, request.SpeakingRate, ct);
         if (!estimate.FitsBudget)
         {
             throw new ConflictException(
@@ -66,9 +66,10 @@ public class EpisodeService(
             Level = level,
             Style = request.Style,
             DurationMin = duration,
-            TargetWords = LengthEstimator.TargetWords(level, duration, o),
+            TargetWords = estimate.TargetWords,
             VoiceName = prefs.VoiceName,
             VoiceModelFamily = prefs.VoiceModelFamily,
+            SpeakingRate = estimate.SpeakingRate,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -155,15 +156,24 @@ public class EpisodeService(
         }
     }
 
-    public async Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, CancellationToken ct)
+    public async Task<EpisodeEstimate> EstimateAsync(CefrLevel? level, int? durationMin, decimal? speakingRate, CancellationToken ct)
     {
         var prefs = await preferences.GetAsync(ct);
         var lvl = level ?? prefs.DefaultLevel;
         var minutes = durationMin ?? prefs.DefaultDurationMin;
-        var words = LengthEstimator.TargetWords(lvl, minutes, options.Value);
+        var rate = speakingRate ?? prefs.SpeakingRate ?? options.Value.SpeakingRateFor(lvl);
+        if (rate < options.Value.MinSpeakingRate || rate > options.Value.MaxSpeakingRate)
+        {
+            throw new RequestValidationException(
+                nameof(CreateEpisode.SpeakingRate), $"Must be between {options.Value.MinSpeakingRate} and {options.Value.MaxSpeakingRate}.");
+        }
+
+        // Slower speech fills the same minutes with fewer words.
+        var words = LengthEstimator.TargetWords(minutes, ttsOptions.Value.WordsPerMinute(prefs.VoiceModelFamily, rate));
         var chars = (long)Math.Ceiling(words * ttsOptions.Value.CharsPerWord);
         var status = (await budget.GetStatusAsync(ct)).Single(s => s.Family == prefs.VoiceModelFamily);
-        return new EpisodeEstimate(lvl, minutes, words, prefs.VoiceModelFamily, chars, status.Remaining, status.Budget, chars <= status.Remaining);
+        return new EpisodeEstimate(
+            lvl, minutes, words, rate, prefs.VoiceModelFamily, chars, status.Remaining, status.Budget, chars <= status.Remaining);
     }
 
     private static string ResolveTopic(CreateEpisode request, UserPreferences prefs)

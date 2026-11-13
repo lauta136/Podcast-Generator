@@ -20,6 +20,10 @@ public class UserPreferences
     public string? VoiceName { get; set; }
 
     public TtsModelFamily VoiceModelFamily { get; set; } = TtsModelFamily.WaveNet;
+    /// <summary>Player speed (applied while listening, not baked into the audio).</summary>
     public decimal PlaybackSpeed { get; set; } = 1.0m;
+
+    /// <summary>Speed the voice is generated at (1.0 = the voice's natural pace). Null follows the level's default.</summary>
+    public decimal? SpeakingRate { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

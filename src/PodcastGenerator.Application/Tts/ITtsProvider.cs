@@ -13,7 +13,8 @@ public interface ITtsProvider
     Task<IReadOnlyList<VoiceInfo>> GetVoicesAsync(string languageCode, CancellationToken ct);
 }
 
-public sealed record TtsRequest(string Text, string LanguageCode, string VoiceName, TtsModelFamily ModelFamily);
+/// <param name="SpeakingRate">1.0 = the voice's natural pace.</param>
+public sealed record TtsRequest(string Text, string LanguageCode, string VoiceName, TtsModelFamily ModelFamily, decimal SpeakingRate);
 
 public sealed record TtsResult(byte[] Mp3, double DurationSec);
 

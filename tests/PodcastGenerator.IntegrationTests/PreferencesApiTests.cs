@@ -37,6 +37,7 @@ public class PreferencesApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
             voiceName = "de-DE-Wavenet-H",
             voiceModelFamily = "Chirp3HD",
             playbackSpeed = 0.9,
+            speakingRate = 0.8,
         };
 
         var put = await _client.PutAsJsonAsync("/api/preferences", request, Json);
@@ -47,6 +48,11 @@ public class PreferencesApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(30, prefs.GetProperty("defaultDurationMin").GetInt32());
         Assert.Equal("Chirp3HD", prefs.GetProperty("voiceModelFamily").GetString());
         Assert.Equal(2, prefs.GetProperty("interests").GetArrayLength());
+        Assert.Equal(0.8m, prefs.GetProperty("speakingRate").GetDecimal());
+
+        // The preferred speed wins over the level default (B2 would be 0.95).
+        var estimate = await _client.GetFromJsonAsync<JsonElement>("/api/episodes/estimate", Json);
+        Assert.Equal(0.8m, estimate.GetProperty("speakingRate").GetDecimal());
     }
 
     [Fact]

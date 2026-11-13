@@ -13,6 +13,7 @@ public sealed class FakeTtsProvider : ITtsProvider
     public const double FrameSeconds = 576 / 24000.0;
 
     private readonly ConcurrentDictionary<string, int> _calls = new();
+    private readonly ConcurrentDictionary<string, decimal> _rates = new();
 
     /// <summary>The first request for a text matching this fails permanently (once per text).</summary>
     public Func<string, bool>? FailOnceWhen { get; set; }
@@ -26,9 +27,14 @@ public sealed class FakeTtsProvider : ITtsProvider
 
     public int TotalCalls => _calls.Values.Sum();
 
+    /// <summary>Distinct speaking rates requested for texts containing the fragment.</summary>
+    public IReadOnlyList<decimal> RatesFor(string textFragment) =>
+        _rates.Where(kv => kv.Key.Contains(textFragment, StringComparison.Ordinal)).Select(kv => kv.Value).Distinct().ToList();
+
     public Task<TtsResult> SynthesizeAsync(TtsRequest request, CancellationToken ct)
     {
         var n = _calls.AddOrUpdate(request.Text, 1, (_, c) => c + 1);
+        _rates[request.Text] = request.SpeakingRate;
         if (FailOnceWhen is { } fail && fail(request.Text) && n == 1)
         {
             throw new TtsException("Simulated: voice not available");

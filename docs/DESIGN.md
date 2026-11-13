@@ -17,6 +17,7 @@ These override the sections below where they differ.
 - **TTS auth is an API key** restricted to the Text-to-Speech API (`Tts:Google:ApiKey`), over REST, instead of a service account + SDK: no new dependencies. Agreed 2026-11-09.
 - **TTS budgets default to 900,000 characters per family** (90% of 1M), because Google's pages disagree about WaveNet's free tier (1M vs 4M). Usage is counted in UTF-8 bytes, which is never less than what Google bills.
 - **Audio is one stitched MP3 per episode**, joined from per-paragraph chunks. Proofreading runs on every section before the text is final (see ARCHITECTURE).
+- **Speaking speed is separate from the level** (agreed 2026-11-13). Google's `speakingRate` is baked into the audio: each level has a default (A1 0.75 … B1 0.85 … C1/C2 1.0, `Episodes:DefaultSpeakingRate`), preferences may fix a speed (`UserPreferences.SpeakingRate`, null = level default), and each episode can override it (`Episode.SpeakingRate` stores the speed used, range `Episodes:Min/MaxSpeakingRate`, 0.6–1.25). The player's playback speed stays a separate, live control. Length planning uses the measured pace of each voice family instead of words per minute per level: `targetWords = minutes × Tts:Pace:{family}:WordsPerMinute × rate^RateExponent` (WaveNet 160 wpm, exponent 1; Chirp 3: HD 150 wpm, exponent 0.66, because it reacts less to the rate). The speed is part of the audio cache key.
 - `TranscriptSegment` has a nullable `Translation` column, ready for on-demand translation after the MVP.
 - **Test runners:** xUnit (backend), Vitest (frontend). Frontend lint uses oxlint, which ships with the current Vite template.
 
@@ -75,7 +76,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 6. `Episode = Ready` only when all sections and audio segments are complete.
 7. Retry endpoint re-queues only failed/missing items.
 - Statuses: Pending → GeneratingOutline → GeneratingSections → GeneratingAudio → Ready | Failed (plus Paused for budget). Sections and audio segments have their own status, `attempts` and `lastError`.
-- Length: `targetWords = durationMin × wordsPerMinute(level)`, wpm in config (≈110–130 for A1–B1, ≈140–150 for B2+). Sections of ~600–1,200 words. Never pad with repetition.
+- Length: `targetWords = durationMin × wordsPerMinute(voice family, speaking rate)` (see §0). Sections of ~600–1,200 words. Never pad with repetition.
 - Prompts: versioned template files (`Application/Prompts/`), CEFR-specific constraints, natural spoken podcast-host style, no markdown or stage directions.
 - Validate every LLM JSON response; on invalid JSON retry once with a repair prompt, then fail the step.
 

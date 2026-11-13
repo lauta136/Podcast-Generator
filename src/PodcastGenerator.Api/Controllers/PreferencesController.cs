@@ -24,7 +24,8 @@ public class PreferencesController(IPreferencesService preferences) : Controller
                 request.Interests,
                 request.VoiceName,
                 request.VoiceModelFamily,
-                request.PlaybackSpeed),
+                request.PlaybackSpeed,
+                request.SpeakingRate),
             ct);
         return PreferencesDto.From(updated);
     }

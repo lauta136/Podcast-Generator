@@ -48,6 +48,7 @@ public class PreferencesService(
         prefs.VoiceName = string.IsNullOrWhiteSpace(request.VoiceName) ? null : request.VoiceName.Trim();
         prefs.VoiceModelFamily = request.VoiceModelFamily;
         prefs.PlaybackSpeed = request.PlaybackSpeed;
+        prefs.SpeakingRate = request.SpeakingRate;
         prefs.UpdatedAt = clock.GetUtcNow();
 
         await repository.SaveChangesAsync(ct);
@@ -72,6 +73,11 @@ public class PreferencesService(
         if (request.DefaultDurationMin < options.MinDurationMin || request.DefaultDurationMin > options.MaxDurationMin)
         {
             errors[nameof(request.DefaultDurationMin)] = [$"Must be between {options.MinDurationMin} and {options.MaxDurationMin} minutes."];
+        }
+
+        if (request.SpeakingRate is { } rate && (rate < options.MinSpeakingRate || rate > options.MaxSpeakingRate))
+        {
+            errors[nameof(request.SpeakingRate)] = [$"Must be between {options.MinSpeakingRate} and {options.MaxSpeakingRate}, or empty for the level's default."];
         }
 
         if (errors.Count > 0)

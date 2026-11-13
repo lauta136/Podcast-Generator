@@ -4,8 +4,9 @@ namespace PodcastGenerator.Application.Generation;
 
 public static class LengthEstimator
 {
-    public static int TargetWords(CefrLevel level, int durationMin, EpisodeOptions options) =>
-        durationMin * options.WordsPerMinute.GetValueOrDefault(level, 130);
+    /// <summary>Words that fill <paramref name="durationMin"/> minutes at the voice's pace and speed.</summary>
+    public static int TargetWords(int durationMin, double wordsPerMinute) =>
+        (int)Math.Round(durationMin * wordsPerMinute);
 
     /// <summary>Number of sections so each lands near the target size and within min/max where possible.</summary>
     public static int SectionCount(int targetWords, EpisodeOptions options)
