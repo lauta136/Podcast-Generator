@@ -16,7 +16,7 @@ public class UserPreferences
     public int DefaultDurationMin { get; set; } = 10;
     public List<string> Interests { get; set; } = [];
 
-    /// <summary>Provider voice name, e.g. "de-DE-Wavenet-B". Null means the provider default.</summary>
+    /// <summary>Provider voice name, e.g. "de-DE-Wavenet-H". Null means the provider default.</summary>
     public string? VoiceName { get; set; }
 
     public TtsModelFamily VoiceModelFamily { get; set; } = TtsModelFamily.WaveNet;

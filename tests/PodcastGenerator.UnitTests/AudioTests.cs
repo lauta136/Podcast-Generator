@@ -89,19 +89,19 @@ public class TtsBudgetTests
     [Fact]
     public void Cache_key_changes_with_voice_model_or_text()
     {
-        var key = AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-B", TtsModelFamily.WaveNet, "google");
+        var key = AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google");
 
-        Assert.Equal(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-B", TtsModelFamily.WaveNet, "google"));
-        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo!", "de-DE-Wavenet-B", TtsModelFamily.WaveNet, "google"));
+        Assert.Equal(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google"));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo!", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google"));
         Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-C", TtsModelFamily.WaveNet, "google"));
-        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-B", TtsModelFamily.Chirp3HD, "google"));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.Chirp3HD, "google"));
     }
 }
 
 public class GoogleCloudTtsProviderTests
 {
     [Theory]
-    [InlineData("de-DE-Wavenet-B", TtsModelFamily.WaveNet)]
+    [InlineData("de-DE-Wavenet-H", TtsModelFamily.WaveNet)]
     [InlineData("de-DE-Chirp3-HD-Charon", TtsModelFamily.Chirp3HD)]
     [InlineData("de-DE-Standard-A", null)]
     [InlineData("de-DE-Neural2-B", null)]
@@ -120,7 +120,7 @@ public class GoogleCloudTtsProviderTests
         Assert.Equal("tts-key", handler.ApiKeyHeader);
         Assert.DoesNotContain("tts-key", handler.Url); // never in the URL (logs)
         Assert.Contains("\"audioEncoding\":\"MP3\"", handler.Body);
-        Assert.Contains("\"name\":\"de-DE-Wavenet-B\"", handler.Body);
+        Assert.Contains("\"name\":\"de-DE-Wavenet-H\"", handler.Body);
     }
 
     [Theory]
@@ -147,16 +147,16 @@ public class GoogleCloudTtsProviderTests
         var handler = new Handler(HttpStatusCode.OK, """
             {"voices":[
               {"name":"de-DE-Standard-A","languageCodes":["de-DE"],"ssmlGender":"FEMALE"},
-              {"name":"de-DE-Wavenet-B","languageCodes":["de-DE"],"ssmlGender":"MALE"},
+              {"name":"de-DE-Wavenet-H","languageCodes":["de-DE"],"ssmlGender":"MALE"},
               {"name":"de-DE-Chirp3-HD-Charon","languageCodes":["de-DE"],"ssmlGender":"MALE"}]}
             """);
 
         var voices = await Create(handler).GetVoicesAsync("de-DE", CancellationToken.None);
 
-        Assert.Equal(["de-DE-Wavenet-B", "de-DE-Chirp3-HD-Charon"], voices.Select(v => v.Name));
+        Assert.Equal(["de-DE-Wavenet-H", "de-DE-Chirp3-HD-Charon"], voices.Select(v => v.Name));
     }
 
-    private static TtsRequest Request() => new("Hallo Welt.", "de-DE", "de-DE-Wavenet-B", TtsModelFamily.WaveNet);
+    private static TtsRequest Request() => new("Hallo Welt.", "de-DE", "de-DE-Wavenet-H", TtsModelFamily.WaveNet);
 
     private static GoogleCloudTtsProvider Create(Handler handler, string key = "tts-key") =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://tts.test/v1/") }, Options.Create(new GoogleTtsOptions { ApiKey = key }));
