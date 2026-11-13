@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -45,12 +46,12 @@ public partial class AudioGenerator(
         await StitchAsync(episode, ct);
     }
 
-    /// <summary>Creates one chunk per paragraph; keeps existing chunks whose text, voice and model are unchanged.</summary>
+    /// <summary>Creates one chunk per paragraph; keeps existing chunks whose text, voice, model and speed are unchanged.</summary>
     private async Task PlanChunksAsync(Episode episode, CancellationToken ct)
     {
         var voice = ttsOptions.Value.ResolveVoice(episode.VoiceName, episode.VoiceModelFamily);
         var wanted = Paragraphs(episode)
-            .Select((p, order) => (p.Section, p.ParagraphIndex, p.Text, Order: order, Key: CacheKey(p.Text, voice, episode.VoiceModelFamily, tts.Name)))
+            .Select((p, order) => (p.Section, p.ParagraphIndex, p.Text, Order: order, Key: CacheKey(p.Text, voice, episode.VoiceModelFamily, tts.Name, episode.SpeakingRate)))
             .ToList();
 
         var changed = false;
@@ -98,7 +99,7 @@ public partial class AudioGenerator(
             chunk.Attempts++;
             try
             {
-                var result = await tts.SynthesizeAsync(new TtsRequest(text, LanguageTag(episode.LanguageCode), chunk.VoiceName, chunk.ModelFamily), ct);
+                var result = await tts.SynthesizeAsync(new TtsRequest(text, LanguageTag(episode.LanguageCode), chunk.VoiceName, chunk.ModelFamily, episode.SpeakingRate), ct);
                 var key = ChunkKey(episode.Id, chunk.Order);
                 using (var audio = new MemoryStream(result.Mp3))
                 {
@@ -185,8 +186,9 @@ public partial class AudioGenerator(
                     return (s, g.Key, string.Join(" ", sentences.Select(t => t.Text)), sentences);
                 }));
 
-    public static string CacheKey(string text, string voice, TtsModelFamily family, string provider) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{provider}\n{family}\n{voice}\n{text}")));
+    public static string CacheKey(string text, string voice, TtsModelFamily family, string provider, decimal speakingRate) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{provider}\n{family}\n{voice}\n{speakingRate.ToString("0.00", CultureInfo.InvariantCulture)}\n{text}")));
 
     /// <summary>"de" → "de-DE". Episodes store ISO 639-1; TTS voices need a region.</summary>
     public static string LanguageTag(string languageCode) => languageCode switch

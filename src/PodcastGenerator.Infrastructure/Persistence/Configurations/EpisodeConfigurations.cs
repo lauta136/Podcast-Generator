@@ -28,6 +28,7 @@ public class EpisodeConfiguration : IEntityTypeConfiguration<Episode>
         builder.Property(e => e.Description).HasMaxLength(2000);
         builder.Property(e => e.Summary).HasMaxLength(2000);
         builder.Property(e => e.VoiceName).HasMaxLength(100);
+        builder.Property(e => e.SpeakingRate).HasPrecision(3, 2);
         builder.Property(e => e.AudioStorageKey).HasMaxLength(300);
         builder.HasOne<User>().WithMany().HasForeignKey(e => e.UserId);
         builder.HasMany(e => e.Sections).WithOne().HasForeignKey(s => s.EpisodeId).OnDelete(DeleteBehavior.Cascade);

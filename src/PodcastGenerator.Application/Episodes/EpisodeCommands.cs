@@ -4,7 +4,8 @@ namespace PodcastGenerator.Application.Episodes;
 
 /// <param name="Level">Null uses the default from preferences.</param>
 /// <param name="DurationMin">Null uses the default from preferences.</param>
-public sealed record CreateEpisode(string? Topic, bool SurpriseMe, CefrLevel? Level, int? DurationMin, EpisodeStyle Style);
+/// <param name="SpeakingRate">Null uses preferences, then the level's default.</param>
+public sealed record CreateEpisode(string? Topic, bool SurpriseMe, CefrLevel? Level, int? DurationMin, EpisodeStyle Style, decimal? SpeakingRate = null);
 
 public sealed record EpisodeProgress(
     Guid EpisodeId,
@@ -21,6 +22,7 @@ public sealed record EpisodeEstimate(
     CefrLevel Level,
     int DurationMin,
     int TargetWords,
+    decimal SpeakingRate,
     TtsModelFamily VoiceModelFamily,
     long EstimatedChars,
     long BudgetRemaining,

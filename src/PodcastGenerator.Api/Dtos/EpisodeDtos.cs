@@ -19,6 +19,9 @@ public sealed class CreateEpisodeRequest
 
     [EnumDataType(typeof(EpisodeStyle))]
     public EpisodeStyle Style { get; init; } = EpisodeStyle.Conversational;
+
+    /// <summary>Voice speed; null uses preferences, then the level's default.</summary>
+    public decimal? SpeakingRate { get; init; }
 }
 
 public sealed class RateEpisodeRequest
@@ -37,6 +40,7 @@ public sealed record EpisodeDto(
     EpisodeStyle Style,
     int DurationMin,
     int TargetWords,
+    decimal SpeakingRate,
     EpisodeStatus Status,
     string? LastError,
     DifficultyRating? DifficultyRating,
@@ -44,7 +48,7 @@ public sealed record EpisodeDto(
     DateTimeOffset CreatedAt)
 {
     public static EpisodeDto From(Episode e) => new(
-        e.Id, e.Title, e.Description, e.Topic, e.LanguageCode, e.Level, e.Style, e.DurationMin, e.TargetWords,
+        e.Id, e.Title, e.Description, e.Topic, e.LanguageCode, e.Level, e.Style, e.DurationMin, e.TargetWords, e.SpeakingRate,
         e.Status, e.LastError, e.DifficultyRating, e.AudioDurationSec, e.CreatedAt);
 }
 
@@ -66,6 +70,7 @@ public sealed record EpisodeEstimateDto(
     CefrLevel Level,
     int DurationMin,
     int TargetWords,
+    decimal SpeakingRate,
     TtsModelFamily VoiceModelFamily,
     long EstimatedChars,
     long BudgetRemaining,
@@ -73,7 +78,7 @@ public sealed record EpisodeEstimateDto(
     bool FitsBudget)
 {
     public static EpisodeEstimateDto From(EpisodeEstimate e) =>
-        new(e.Level, e.DurationMin, e.TargetWords, e.VoiceModelFamily, e.EstimatedChars, e.BudgetRemaining, e.MonthlyBudget, e.FitsBudget);
+        new(e.Level, e.DurationMin, e.TargetWords, e.SpeakingRate, e.VoiceModelFamily, e.EstimatedChars, e.BudgetRemaining, e.MonthlyBudget, e.FitsBudget);
 }
 
 public sealed record TranscriptDto(Guid EpisodeId, string? Title, IReadOnlyList<TranscriptSectionDto> Sections)

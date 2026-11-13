@@ -28,5 +28,6 @@ public class UserPreferencesConfiguration : IEntityTypeConfiguration<UserPrefere
         builder.Property(p => p.TargetLanguage).HasMaxLength(8);
         builder.Property(p => p.VoiceName).HasMaxLength(100);
         builder.Property(p => p.PlaybackSpeed).HasPrecision(3, 2);
+        builder.Property(p => p.SpeakingRate).HasPrecision(3, 2);
     }
 }

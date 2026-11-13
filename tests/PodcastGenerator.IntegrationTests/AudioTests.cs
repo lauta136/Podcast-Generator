@@ -146,9 +146,45 @@ public class AudioTests(ApiFactory factory) : IClassFixture<ApiFactory>
     {
         var estimate = await _client.GetFromJsonAsync<JsonElement>("/api/episodes/estimate?level=B1&durationMin=10", JsonDefaults.Web);
 
-        Assert.Equal(1250, estimate.GetProperty("targetWords").GetInt32());
-        Assert.Equal(8750, estimate.GetProperty("estimatedChars").GetInt64()); // 1250 words × 7
+        Assert.Equal(0.85m, estimate.GetProperty("speakingRate").GetDecimal()); // B1 default
+        Assert.Equal(1360, estimate.GetProperty("targetWords").GetInt32()); // 10 min × 160 wpm × 0.85
+        Assert.Equal(9520, estimate.GetProperty("estimatedChars").GetInt64()); // 1360 words × 7
         Assert.True(estimate.GetProperty("fitsBudget").GetBoolean());
+
+        var faster = await _client.GetFromJsonAsync<JsonElement>("/api/episodes/estimate?level=B1&durationMin=10&speakingRate=1.0", JsonDefaults.Web);
+        Assert.Equal(1600, faster.GetProperty("targetWords").GetInt32());
+    }
+
+    [Fact]
+    public async Task Episodes_default_to_the_level_speed_and_can_override_it()
+    {
+        var byLevel = await EpisodeApi.CreateAsync(_client, "Thema Lüneburger Heide");
+        var created = await _client.PostAsJsonAsync(
+            "/api/episodes", new { topic = "Thema Spreewald", durationMin = 10, level = "B1", speakingRate = 1.1 }, JsonDefaults.Web);
+        created.EnsureSuccessStatusCode();
+        var overridden = (await created.Content.ReadFromJsonAsync<JsonElement>(JsonDefaults.Web)).GetProperty("id").GetGuid();
+
+        await EpisodeApi.WaitForAsync(_client, byLevel, "Ready");
+        await EpisodeApi.WaitForAsync(_client, overridden, "Ready");
+
+        var episode = await _client.GetFromJsonAsync<JsonElement>($"/api/episodes/{overridden}", JsonDefaults.Web);
+        Assert.Equal(1.1m, episode.GetProperty("speakingRate").GetDecimal());
+        Assert.Equal(1760, episode.GetProperty("targetWords").GetInt32());
+        Assert.Equal([0.85m], factory.Tts.RatesFor("Thema Lüneburger Heide"));
+        Assert.Equal([1.1m], factory.Tts.RatesFor("Thema Spreewald"));
+    }
+
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(2.0)]
+    public async Task Speaking_rate_outside_the_allowed_range_is_rejected(double rate)
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/episodes", new { topic = "Thema Harz", durationMin = 10, level = "B1", speakingRate = rate }, JsonDefaults.Web);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(JsonDefaults.Web);
+        Assert.True(problem.GetProperty("errors").TryGetProperty("SpeakingRate", out _));
     }
 
     private async Task<long> UsedAsync()

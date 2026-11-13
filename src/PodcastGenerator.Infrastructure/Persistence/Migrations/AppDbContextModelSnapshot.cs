@@ -140,6 +140,10 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                     b.Property<int?>("SeasonOrder")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("SpeakingRate")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -467,6 +471,10 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(8)");
 
                     b.Property<decimal>("PlaybackSpeed")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)");
+
+                    b.Property<decimal?>("SpeakingRate")
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)");
 

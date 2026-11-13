@@ -15,14 +15,15 @@ public class EpisodesController(IEpisodeService episodes) : ControllerBase
     public async Task<IActionResult> Create(CreateEpisodeRequest request, CancellationToken ct)
     {
         var episode = await episodes.CreateAsync(
-            new CreateEpisode(request.Topic, request.SurpriseMe, request.Level, request.DurationMin, request.Style), ct);
+            new CreateEpisode(request.Topic, request.SurpriseMe, request.Level, request.DurationMin, request.Style, request.SpeakingRate), ct);
         return AcceptedAtAction(nameof(GetStatus), new { id = episode.Id }, EpisodeDto.From(episode));
     }
 
     /// <summary>Words, TTS characters and budget impact for an episode before creating it.</summary>
     [HttpGet("estimate")]
-    public async Task<EpisodeEstimateDto> Estimate([FromQuery] CefrLevel? level, [FromQuery] int? durationMin, CancellationToken ct) =>
-        EpisodeEstimateDto.From(await episodes.EstimateAsync(level, durationMin, ct));
+    public async Task<EpisodeEstimateDto> Estimate(
+        [FromQuery] CefrLevel? level, [FromQuery] int? durationMin, [FromQuery] decimal? speakingRate, CancellationToken ct) =>
+        EpisodeEstimateDto.From(await episodes.EstimateAsync(level, durationMin, speakingRate, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<EpisodeDto> Get(Guid id, CancellationToken ct) =>

@@ -62,6 +62,28 @@ public class PreferencesServiceTests
         Assert.Contains(nameof(UpdatePreferences.DefaultDurationMin), ex.Errors.Keys);
     }
 
+    [Theory]
+    [InlineData("0.5")]
+    [InlineData("1.5")]
+    public async Task Update_rejects_speaking_rate_outside_configured_range(string rate)
+    {
+        var request = ValidRequest() with { SpeakingRate = decimal.Parse(rate, System.Globalization.CultureInfo.InvariantCulture) };
+
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(
+            () => CreateService().UpdateAsync(request, CancellationToken.None));
+
+        Assert.Contains(nameof(UpdatePreferences.SpeakingRate), ex.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Update_stores_speaking_rate_and_null_means_level_default()
+    {
+        var service = CreateService();
+
+        Assert.Equal(0.9m, (await service.UpdateAsync(ValidRequest() with { SpeakingRate = 0.9m }, CancellationToken.None)).SpeakingRate);
+        Assert.Null((await service.UpdateAsync(ValidRequest() with { SpeakingRate = null }, CancellationToken.None)).SpeakingRate);
+    }
+
     [Fact]
     public async Task Update_rejects_unsupported_target_language()
     {

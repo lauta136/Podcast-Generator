@@ -87,14 +87,15 @@ public class TtsBudgetTests
     public void Billable_chars_count_utf8_bytes() => Assert.Equal(7, TtsBudget.BillableChars("Grüße")); // G r e: 1 byte each; ü, ß: 2 each
 
     [Fact]
-    public void Cache_key_changes_with_voice_model_or_text()
+    public void Cache_key_changes_with_voice_model_speed_or_text()
     {
-        var key = AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google");
+        var key = AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google", 0.85m);
 
-        Assert.Equal(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google"));
-        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo!", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google"));
-        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-C", TtsModelFamily.WaveNet, "google"));
-        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.Chirp3HD, "google"));
+        Assert.Equal(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google", 0.850m));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo!", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google", 0.85m));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-C", TtsModelFamily.WaveNet, "google", 0.85m));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.Chirp3HD, "google", 0.85m));
+        Assert.NotEqual(key, AudioGenerator.CacheKey("Hallo", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, "google", 1.0m));
     }
 }
 
@@ -123,6 +124,7 @@ public class GoogleCloudTtsProviderTests
         Assert.Equal("tts-key", handler.ApiKeyHeader);
         Assert.Contains("\"audioEncoding\":\"MP3\"", handler.Body);
         Assert.Contains("\"name\":\"de-DE-Wavenet-H\"", handler.Body);
+        Assert.Contains("\"speakingRate\":0.85", handler.Body);
     }
 
     [Theory]
@@ -159,7 +161,7 @@ public class GoogleCloudTtsProviderTests
         Assert.Equal("https://tts.test/v1/voices?languageCode=de-DE", handler.Url);
     }
 
-    private static TtsRequest Request() => new("Hallo Welt.", "de-DE", "de-DE-Wavenet-H", TtsModelFamily.WaveNet);
+    private static TtsRequest Request() => new("Hallo Welt.", "de-DE", "de-DE-Wavenet-H", TtsModelFamily.WaveNet, 0.85m);
 
     private static GoogleCloudTtsProvider Create(Handler handler, string key = "tts-key") =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://tts.test/v1/") }, Options.Create(new GoogleTtsOptions { ApiKey = key }));

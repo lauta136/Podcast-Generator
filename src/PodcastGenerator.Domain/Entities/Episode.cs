@@ -20,6 +20,9 @@ public class Episode
     public string? VoiceName { get; set; }
     public TtsModelFamily VoiceModelFamily { get; set; }
 
+    /// <summary>Speed the voice was generated at (1.0 = the voice's natural pace), resolved when the episode is created.</summary>
+    public decimal SpeakingRate { get; set; } = 1.0m;
+
     // Filled by the outline step.
     public string? Title { get; set; }
     public string? Description { get; set; }

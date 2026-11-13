@@ -10,4 +10,5 @@ public sealed record UpdatePreferences(
     IReadOnlyList<string> Interests,
     string? VoiceName,
     TtsModelFamily VoiceModelFamily,
-    decimal PlaybackSpeed);
+    decimal PlaybackSpeed,
+    decimal? SpeakingRate = null);

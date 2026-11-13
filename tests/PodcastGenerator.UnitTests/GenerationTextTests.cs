@@ -1,5 +1,7 @@
+using System.Globalization;
 using PodcastGenerator.Application;
 using PodcastGenerator.Application.Generation;
+using PodcastGenerator.Application.Tts;
 using PodcastGenerator.Domain.Enums;
 
 namespace PodcastGenerator.UnitTests;
@@ -8,12 +10,24 @@ public class LengthEstimatorTests
 {
     private readonly EpisodeOptions _options = new();
 
+    private readonly TtsOptions _tts = new();
+
     [Theory]
-    [InlineData(CefrLevel.B1, 10, 1250)]
-    [InlineData(CefrLevel.A1, 10, 1100)]
-    [InlineData(CefrLevel.C2, 60, 9000)]
-    public void Target_words_use_level_pace(CefrLevel level, int minutes, int expected) =>
-        Assert.Equal(expected, LengthEstimator.TargetWords(level, minutes, _options));
+    [InlineData(TtsModelFamily.WaveNet, "1.0", 10, 1600)]
+    [InlineData(TtsModelFamily.WaveNet, "0.85", 10, 1360)] // B1 default: slower voice, fewer words for the same minutes
+    [InlineData(TtsModelFamily.WaveNet, "0.75", 60, 7200)]
+    [InlineData(TtsModelFamily.Chirp3HD, "1.0", 10, 1500)]
+    [InlineData(TtsModelFamily.Chirp3HD, "0.75", 10, 1241)] // Chirp reacts less to the rate: 1500 × 0.75^0.66
+    public void Target_words_follow_voice_pace_and_speaking_rate(TtsModelFamily family, string rate, int minutes, int expected) =>
+        Assert.Equal(expected, LengthEstimator.TargetWords(minutes, _tts.WordsPerMinute(family, decimal.Parse(rate, CultureInfo.InvariantCulture))));
+
+    [Fact]
+    public void Lower_levels_default_to_slower_speech()
+    {
+        var rates = Enum.GetValues<CefrLevel>().Select(_options.SpeakingRateFor).ToList();
+        Assert.Equal(rates.Order(), rates);
+        Assert.All(rates, r => Assert.InRange(r, _options.MinSpeakingRate, _options.MaxSpeakingRate));
+    }
 
     [Theory]
     [InlineData(600, 1)] // 5 min B1

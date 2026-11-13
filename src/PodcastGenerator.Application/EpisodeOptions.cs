@@ -10,16 +10,24 @@ public class EpisodeOptions
     public int MinDurationMin { get; set; } = 5;
     public int MaxDurationMin { get; set; } = 60;
 
-    /// <summary>Speaking pace used to turn minutes into words. Slower for lower levels.</summary>
-    public Dictionary<CefrLevel, int> WordsPerMinute { get; set; } = new()
+    /// <summary>
+    /// Default voice speed per level (1.0 = the voice's natural pace). Level sets vocabulary and grammar; speed is
+    /// separate, so learners can raise one without the other. Users override it in preferences or per episode.
+    /// </summary>
+    public Dictionary<CefrLevel, decimal> DefaultSpeakingRate { get; set; } = new()
     {
-        [CefrLevel.A1] = 110,
-        [CefrLevel.A2] = 115,
-        [CefrLevel.B1] = 125,
-        [CefrLevel.B2] = 140,
-        [CefrLevel.C1] = 145,
-        [CefrLevel.C2] = 150,
+        [CefrLevel.A1] = 0.75m,
+        [CefrLevel.A2] = 0.80m,
+        [CefrLevel.B1] = 0.85m,
+        [CefrLevel.B2] = 0.95m,
+        [CefrLevel.C1] = 1.0m,
+        [CefrLevel.C2] = 1.0m,
     };
+
+    public decimal MinSpeakingRate { get; set; } = 0.6m;
+    public decimal MaxSpeakingRate { get; set; } = 1.25m;
+
+    public decimal SpeakingRateFor(CefrLevel level) => DefaultSpeakingRate.GetValueOrDefault(level, 1.0m);
 
     public int SectionTargetWords { get; set; } = 900;
     public int SectionMinWords { get; set; } = 600;
