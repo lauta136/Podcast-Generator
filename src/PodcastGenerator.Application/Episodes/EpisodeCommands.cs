@@ -12,4 +12,17 @@ public sealed record EpisodeProgress(
     string? Title,
     string? LastError,
     int SectionsTotal,
-    int SectionsCompleted);
+    int SectionsCompleted,
+    int AudioTotal,
+    int AudioCompleted);
+
+/// <summary>What an episode would cost before creating it.</summary>
+public sealed record EpisodeEstimate(
+    CefrLevel Level,
+    int DurationMin,
+    int TargetWords,
+    TtsModelFamily VoiceModelFamily,
+    long EstimatedChars,
+    long BudgetRemaining,
+    long MonthlyBudget,
+    bool FitsBudget);

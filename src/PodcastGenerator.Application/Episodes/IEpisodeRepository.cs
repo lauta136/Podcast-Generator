@@ -19,5 +19,7 @@ public interface IEpisodeRepository
 
     Task<IReadOnlyList<DifficultyRating>> RecentRatingsAsync(Guid userId, CefrLevel level, int take, CancellationToken ct);
 
+    void Remove(Episode episode);
+
     Task SaveChangesAsync(CancellationToken ct);
 }

@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PodcastGenerator.Application.Audio;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Generation;
 using PodcastGenerator.Application.Preferences;
+using PodcastGenerator.Application.Tts;
 
 namespace PodcastGenerator.Application;
 
@@ -15,6 +17,9 @@ public static class DependencyInjection
         services.AddScoped<IPreferencesService, PreferencesService>();
         services.AddScoped<IEpisodeService, EpisodeService>();
         services.AddScoped<IEpisodeGenerator, EpisodeGenerator>();
+        services.Configure<TtsOptions>(configuration.GetSection(TtsOptions.SectionName));
+        services.AddScoped<TtsBudget>();
+        services.AddScoped<AudioGenerator>();
         return services;
     }
 }

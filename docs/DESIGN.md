@@ -14,6 +14,9 @@ These override the sections below where they differ.
 - **Repositories** are query-specific, not generic. Validation uses DataAnnotations (no FluentValidation dependency).
 - **Native language default is English** (configurable), replacing Spanish in §1.
 - **Seasons come after the MVP** (see the brief). For the MVP, `Episode` has a nullable `SeasonId` and `SeasonOrder`, and a `Season` table (`UserId`, title, topic, level, arc JSON) exists but has no API or UI yet. Episode prompts will later take the season arc and summaries of earlier episodes, so each `Episode` stores a short `Summary` generated with its outline.
+- **TTS auth is an API key** restricted to the Text-to-Speech API (`Tts:Google:ApiKey`), over REST, instead of a service account + SDK: no new dependencies. Agreed 2026-11-09.
+- **TTS budgets default to 900,000 characters per family** (90% of 1M), because Google's pages disagree about WaveNet's free tier (1M vs 4M). Usage is counted in UTF-8 bytes, which is never less than what Google bills.
+- **Audio is one stitched MP3 per episode**, joined from per-paragraph chunks. Proofreading runs on every section before the text is final (see ARCHITECTURE).
 - `TranscriptSegment` has a nullable `Translation` column, ready for on-demand translation after the MVP.
 - **Test runners:** xUnit (backend), Vitest (frontend). Frontend lint uses oxlint, which ships with the current Vite template.
 

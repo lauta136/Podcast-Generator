@@ -6,11 +6,14 @@ using PodcastGenerator.Application.Common;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Preferences;
+using PodcastGenerator.Application.Tts;
 using PodcastGenerator.Infrastructure.Identity;
 using PodcastGenerator.Infrastructure.Jobs;
 using PodcastGenerator.Infrastructure.Llm;
 using PodcastGenerator.Infrastructure.Persistence;
 using PodcastGenerator.Infrastructure.Persistence.Repositories;
+using PodcastGenerator.Infrastructure.Storage;
+using PodcastGenerator.Infrastructure.Tts;
 
 namespace PodcastGenerator.Infrastructure;
 
@@ -36,6 +39,17 @@ public static class DependencyInjection
             http.BaseAddress = new Uri(o.BaseUrl.EndsWith('/') ? o.BaseUrl : o.BaseUrl + "/");
             http.Timeout = TimeSpan.FromSeconds(o.TimeoutSeconds);
         });
+
+        services.AddScoped<ITtsUsageRepository, TtsUsageRepository>();
+        services.Configure<GoogleTtsOptions>(configuration.GetSection(GoogleTtsOptions.SectionName));
+        services.AddHttpClient<ITtsProvider, GoogleCloudTtsProvider>((sp, http) =>
+        {
+            var o = sp.GetRequiredService<IOptions<GoogleTtsOptions>>().Value;
+            http.BaseAddress = new Uri(o.BaseUrl.EndsWith('/') ? o.BaseUrl : o.BaseUrl + "/");
+            http.Timeout = TimeSpan.FromSeconds(o.TimeoutSeconds);
+        });
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        services.AddSingleton<IAudioStorage, LocalFileAudioStorage>();
 
         services.Configure<WorkerOptions>(configuration.GetSection(WorkerOptions.SectionName));
         services.AddScoped<JobLeases>();

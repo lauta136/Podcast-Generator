@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PodcastGenerator.Api.Dtos;
 using PodcastGenerator.Application.Episodes;
+using PodcastGenerator.Domain.Enums;
 
 namespace PodcastGenerator.Api.Controllers;
 
@@ -17,6 +18,11 @@ public class EpisodesController(IEpisodeService episodes) : ControllerBase
             new CreateEpisode(request.Topic, request.SurpriseMe, request.Level, request.DurationMin, request.Style), ct);
         return AcceptedAtAction(nameof(GetStatus), new { id = episode.Id }, EpisodeDto.From(episode));
     }
+
+    /// <summary>Words, TTS characters and budget impact for an episode before creating it.</summary>
+    [HttpGet("estimate")]
+    public async Task<EpisodeEstimateDto> Estimate([FromQuery] CefrLevel? level, [FromQuery] int? durationMin, CancellationToken ct) =>
+        EpisodeEstimateDto.From(await episodes.EstimateAsync(level, durationMin, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<EpisodeDto> Get(Guid id, CancellationToken ct) =>
@@ -36,6 +42,18 @@ public class EpisodesController(IEpisodeService episodes) : ControllerBase
     {
         await episodes.RetryAsync(id, ct);
         return AcceptedAtAction(nameof(GetStatus), new { id }, null);
+    }
+
+    /// <summary>The stitched episode MP3. Supports HTTP Range requests, which the player needs for seeking.</summary>
+    [HttpGet("{id:guid}/audio")]
+    public async Task<IActionResult> GetAudio(Guid id, CancellationToken ct) =>
+        File(await episodes.OpenAudioAsync(id, ct), "audio/mpeg", enableRangeProcessing: true);
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await episodes.DeleteAsync(id, ct);
+        return NoContent();
     }
 
     [HttpPut("{id:guid}/rating")]
