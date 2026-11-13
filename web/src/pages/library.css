@@ -1,0 +1,134 @@
+.library-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.library-head h1 {
+  margin: 0;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.filters .select {
+  width: auto;
+}
+
+.episodes {
+  list-style: none;
+  margin: 0.5rem 0 1.5rem;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.episode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.episode-main {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.episode-title {
+  font-family: var(--serif);
+  font-size: var(--step-1);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.episode-title:hover {
+  text-decoration: underline;
+}
+
+.episode-meta {
+  margin: 0.15rem 0 0.4rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.episode-status {
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.episode-status[data-status='Failed'] {
+  color: var(--danger);
+}
+
+.episode-status[data-status='working'] {
+  color: var(--signal);
+}
+
+.episode-progress {
+  display: grid;
+  grid-template-columns: minmax(6rem, 14rem) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.episode-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.home-intro {
+  padding: 2rem 0 2.5rem;
+}
+
+/* The headline speaks German: it's what the app is for. */
+.home-intro h1 {
+  font-size: clamp(var(--step-3), 7vw, 4.25rem);
+  letter-spacing: -0.01em;
+  max-width: 14ch;
+}
+
+.resume {
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  border-left: 4px solid var(--signal);
+}
+
+.resume-link {
+  font-family: var(--serif);
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+@media (max-width: 36rem) {
+  .filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filters .input {
+    grid-column: 1 / -1;
+  }
+
+  .filters .select {
+    width: 100%;
+  }
+}
