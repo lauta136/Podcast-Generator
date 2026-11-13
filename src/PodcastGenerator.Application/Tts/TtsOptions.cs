@@ -20,7 +20,7 @@ public class TtsOptions
     /// <summary>Voice used when the user hasn't picked one.</summary>
     public Dictionary<TtsModelFamily, string> DefaultVoices { get; set; } = new()
     {
-        [TtsModelFamily.WaveNet] = "de-DE-Wavenet-B",
+        [TtsModelFamily.WaveNet] = "de-DE-Wavenet-H",
         [TtsModelFamily.Chirp3HD] = "de-DE-Chirp3-HD-Charon",
     };
 

@@ -55,7 +55,7 @@ public sealed class FakeTtsProvider : ITtsProvider
     public Task<IReadOnlyList<VoiceInfo>> GetVoicesAsync(string languageCode, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<VoiceInfo>>(
         [
-            new("de-DE-Wavenet-B", languageCode, "MALE", TtsModelFamily.WaveNet),
+            new("de-DE-Wavenet-H", languageCode, "MALE", TtsModelFamily.WaveNet),
             new("de-DE-Chirp3-HD-Charon", languageCode, "MALE", TtsModelFamily.Chirp3HD),
         ]);
 }

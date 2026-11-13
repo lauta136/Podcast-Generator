@@ -29,7 +29,8 @@ public sealed class GoogleCloudTtsProvider(HttpClient http, IOptions<GoogleTtsOp
             new VoiceSelection(request.LanguageCode, request.VoiceName),
             new AudioConfig("MP3", options.Value.SampleRateHertz));
 
-        using var message = new HttpRequestMessage(HttpMethod.Post, "text:synthesize") { Content = JsonContent.Create(body, options: Json) };
+        // "./" matters: a bare "text:synthesize" is an absolute URI with the scheme "text", not a path.
+        using var message = new HttpRequestMessage(HttpMethod.Post, "./text:synthesize") { Content = JsonContent.Create(body, options: Json) };
         var response = await SendAsync(message, ct);
         var result = await response.Content.ReadFromJsonAsync<SynthesizeResponse>(Json, ct);
         if (string.IsNullOrEmpty(result?.AudioContent))
