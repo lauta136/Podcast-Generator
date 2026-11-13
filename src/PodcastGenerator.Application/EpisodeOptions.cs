@@ -29,6 +29,12 @@ public class EpisodeOptions
 
     public decimal SpeakingRateFor(CefrLevel level) => DefaultSpeakingRate.GetValueOrDefault(level, 1.0m);
 
+    /// <summary>Null when valid. Two decimals at most, because that is what is stored and sent.</summary>
+    public string? SpeakingRateError(decimal rate) =>
+        rate < MinSpeakingRate || rate > MaxSpeakingRate ? $"Must be between {MinSpeakingRate} and {MaxSpeakingRate}."
+        : decimal.Round(rate, 2) != rate ? "Use at most two decimals, e.g. 0.85."
+        : null;
+
     public int SectionTargetWords { get; set; } = 900;
     public int SectionMinWords { get; set; } = 600;
     public int SectionMaxWords { get; set; } = 1200;

@@ -34,7 +34,7 @@ public class PreferencesApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
             defaultLevel = "B2",
             defaultDurationMin = 30,
             interests = new[] { "history", "cooking" },
-            voiceName = "de-DE-Wavenet-H",
+            voiceName = "de-DE-Chirp3-HD-Charon",
             voiceModelFamily = "Chirp3HD",
             playbackSpeed = 0.9,
             speakingRate = 0.8,

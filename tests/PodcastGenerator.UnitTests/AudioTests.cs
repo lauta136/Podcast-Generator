@@ -107,7 +107,7 @@ public class GoogleCloudTtsProviderTests
     [InlineData("de-DE-Standard-A", null)]
     [InlineData("de-DE-Neural2-B", null)]
     public void Only_budgeted_voice_families_are_offered(string voice, TtsModelFamily? expected) =>
-        Assert.Equal(expected, GoogleCloudTtsProvider.FamilyOf(voice));
+        Assert.Equal(expected, VoiceFamilies.Of(voice));
 
     [Fact]
     public async Task Synthesize_decodes_audio_measures_it_and_sends_the_key_as_a_header()

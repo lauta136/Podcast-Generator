@@ -50,6 +50,13 @@ public partial class AudioGenerator(
     private async Task PlanChunksAsync(Episode episode, CancellationToken ct)
     {
         var voice = ttsOptions.Value.ResolveVoice(episode.VoiceName, episode.VoiceModelFamily);
+        if (VoiceFamilies.Of(voice) != episode.VoiceModelFamily)
+        {
+            // The budget is counted per family, so a mismatched voice would be billed against the wrong counter.
+            throw new TtsException(
+                $"Voice '{voice}' is not a {episode.VoiceModelFamily} voice; nothing was sent. Choose a matching voice in preferences.");
+        }
+
         var wanted = Paragraphs(episode)
             .Select((p, order) => (p.Section, p.ParagraphIndex, p.Text, Order: order, Key: CacheKey(p.Text, voice, episode.VoiceModelFamily, tts.Name, episode.SpeakingRate)))
             .ToList();
@@ -65,6 +72,18 @@ public partial class AudioGenerator(
 
             episode.AudioSegments.Remove(stale);
             changed = true;
+        }
+
+        // A finished chunk whose file is gone (deleted, storage moved) must be voiced again, or stitching fails forever.
+        foreach (var lost in episode.AudioSegments.Where(a => a.Status == StepStatus.Completed).ToList())
+        {
+            if (lost.StorageKey is null || !await storage.ExistsAsync(lost.StorageKey, ct))
+            {
+                lost.Status = StepStatus.Pending;
+                lost.StorageKey = null;
+                lost.DurationSec = null;
+                changed = true;
+            }
         }
 
         foreach (var w in wanted.Where(w => episode.AudioSegments.All(a => a.Order != w.Order)))
