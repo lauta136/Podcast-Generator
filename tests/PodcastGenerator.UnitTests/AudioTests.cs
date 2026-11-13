@@ -117,8 +117,10 @@ public class GoogleCloudTtsProviderTests
         var result = await Create(handler).SynthesizeAsync(Request(), CancellationToken.None);
 
         Assert.Equal(50 * SyntheticMp3.FrameSeconds, result.DurationSec, 6);
+        // Exact URL: "text:synthesize" without "./" parses as a URI with the scheme "text", which only the real
+        // socket handler rejects, so a fake handler would never notice.
+        Assert.Equal("https://tts.test/v1/text:synthesize", handler.Url);
         Assert.Equal("tts-key", handler.ApiKeyHeader);
-        Assert.DoesNotContain("tts-key", handler.Url); // never in the URL (logs)
         Assert.Contains("\"audioEncoding\":\"MP3\"", handler.Body);
         Assert.Contains("\"name\":\"de-DE-Wavenet-H\"", handler.Body);
     }
@@ -154,6 +156,7 @@ public class GoogleCloudTtsProviderTests
         var voices = await Create(handler).GetVoicesAsync("de-DE", CancellationToken.None);
 
         Assert.Equal(["de-DE-Wavenet-H", "de-DE-Chirp3-HD-Charon"], voices.Select(v => v.Name));
+        Assert.Equal("https://tts.test/v1/voices?languageCode=de-DE", handler.Url);
     }
 
     private static TtsRequest Request() => new("Hallo Welt.", "de-DE", "de-DE-Wavenet-H", TtsModelFamily.WaveNet);
