@@ -24,3 +24,16 @@ describe('toApiError', () => {
     expect(error.message).toMatch(/server ran into a problem/)
   })
 })
+
+describe('toApiError for sign-in', () => {
+  it('uses the API message for wrong credentials', async () => {
+    const error = await toApiError(json(401, { title: 'Sign-in failed', detail: 'Email or password is incorrect.' }))
+    expect(error.status).toBe(401)
+    expect(error.message).toBe('Email or password is incorrect.')
+  })
+
+  it('explains the attempt limit, which has no body', async () => {
+    const error = await toApiError(new Response('', { status: 429 }))
+    expect(error.message).toMatch(/Too many attempts/)
+  })
+})

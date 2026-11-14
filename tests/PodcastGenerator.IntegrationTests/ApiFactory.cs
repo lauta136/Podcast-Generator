@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -5,8 +6,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
+using PodcastGenerator.Api.Auth;
 using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Tts;
+using PodcastGenerator.Domain.Entities;
 using PodcastGenerator.Infrastructure.Persistence;
 
 namespace PodcastGenerator.IntegrationTests;
@@ -48,6 +51,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Worker:PollIntervalMs", "50");
         builder.UseSetting("Storage:LocalPath", AudioRoot);
         builder.UseSetting("Tts:ChunkRetryDelayMs", "10");
+        builder.UseSetting("Auth:Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
+        builder.UseSetting("Auth:MaxAttemptsPerMinute", "1000");
         foreach (var (key, value) in ExtraSettings)
         {
             builder.UseSetting(key, value);
@@ -60,6 +65,26 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<ITtsProvider>();
             services.AddSingleton<ITtsProvider>(Tts);
         });
+    }
+
+    /// <summary>
+    /// Clients from CreateClient() are signed in as the seeded local user (a bearer token, no account needed),
+    /// so tests about episodes don't each have to register. Auth tests use <see cref="CreateAnonymousClient"/>.
+    /// </summary>
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        var local = new User { Id = SeedData.LocalUserId, DisplayName = "Local learner" };
+        var token = Services.GetRequiredService<TokenService>().Create(local).Token;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    /// <summary>No token; keeps cookies between requests like a browser.</summary>
+    public HttpClient CreateAnonymousClient()
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = null;
+        return client;
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
@@ -77,6 +102,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             Directory.Delete(AudioRoot, recursive: true);
         }
     }
+}
+
+/// <summary>Three sign-in attempts per minute, to see the limiter refuse the fourth.</summary>
+public sealed class StrictLoginLimitApiFactory : ApiFactory
+{
+    protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:MaxAttemptsPerMinute", "3")];
 }
 
 public sealed class NoProofreadApiFactory : ApiFactory

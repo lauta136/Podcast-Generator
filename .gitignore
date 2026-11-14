@@ -489,3 +489,6 @@ dist/
 audio-storage/
 *.mp3
 .DS_Store
+
+# Local tooling
+.claude/

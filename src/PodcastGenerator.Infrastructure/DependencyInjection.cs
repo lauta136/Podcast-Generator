@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using PodcastGenerator.Application.Common;
+using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Preferences;
@@ -25,7 +25,8 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddScoped<ICurrentUser, LocalCurrentUser>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         services.AddScoped<IPreferencesRepository, PreferencesRepository>();
         services.AddScoped<IEpisodeRepository, EpisodeRepository>();
 

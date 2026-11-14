@@ -10,8 +10,12 @@ import type {
   PreferencesUpdate,
   Progress,
   Transcript,
+  User,
   Voice,
 } from './types'
+
+/** Fired on window when a request outside /api/auth is answered with 401: the session has ended. */
+export const SIGNED_OUT_EVENT = 'podcast:signed-out'
 
 /** A failed request, with the API's ProblemDetails turned into something a form can show. */
 export class ApiError extends Error {
@@ -48,7 +52,11 @@ export async function toApiError(response: Response): Promise<ApiError> {
     problem.detail ??
     Object.values(fieldErrors).flat()[0] ??
     problem.title ??
-    (response.status >= 500 ? 'The server ran into a problem. Try again in a moment.' : `Request failed (${response.status}).`)
+    (response.status === 429
+      ? 'Too many attempts. Wait a minute, then try again.'
+      : response.status >= 500
+        ? 'The server ran into a problem. Try again in a moment.'
+        : `Request failed (${response.status}).`)
   return new ApiError(response.status, message, fieldErrors)
 }
 
@@ -66,6 +74,7 @@ async function request<T>(method: string, url: string, body?: unknown, signal?: 
     throw new ApiError(0, 'Cannot reach the server. Check that the API is running.')
   }
 
+  if (response.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
   if (!response.ok) throw await toApiError(response)
   if (response.status === 204 || response.status === 202) {
     const text = await response.text()
@@ -82,6 +91,11 @@ const query = (params: Record<string, string | number | undefined | null>) => {
 }
 
 export const api = {
+  me: (signal?: AbortSignal) => request<User>('GET', '/api/auth/me', undefined, signal),
+  register: (email: string, password: string) => request<User>('POST', '/api/auth/register', { email, password }),
+  login: (email: string, password: string) => request<User>('POST', '/api/auth/login', { email, password }),
+  logout: () => request<void>('POST', '/api/auth/logout'),
+
   getPreferences: (signal?: AbortSignal) => request<Preferences>('GET', '/api/preferences', undefined, signal),
   savePreferences: (p: PreferencesUpdate) => request<Preferences>('PUT', '/api/preferences', p),
   getVoices: (signal?: AbortSignal) => request<Voice[]>('GET', '/api/voices?language=de', undefined, signal),
