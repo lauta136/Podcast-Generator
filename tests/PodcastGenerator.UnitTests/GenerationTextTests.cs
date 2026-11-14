@@ -117,3 +117,25 @@ public class ProofreadResponseTests
         Assert.Contains(response.Validate(original), e => e.Contains("paragraph 2", StringComparison.Ordinal));
     }
 }
+
+public class TranslationResponseTests
+{
+    [Fact]
+    public void Needs_exactly_one_non_empty_translation_per_sentence()
+    {
+        Assert.Empty(new TranslationResponse { Translations = ["Hello.", "Welcome."] }.Validate(2));
+        Assert.NotEmpty(new TranslationResponse { Translations = ["Hello. Welcome."] }.Validate(2)); // merged sentences
+        Assert.NotEmpty(new TranslationResponse { Translations = ["Hello.", " "] }.Validate(2));
+    }
+
+    [Fact]
+    public void The_prompt_names_the_language_and_lists_the_sentences_with_umlauts_intact()
+    {
+        var request = PromptBuilder.Translate(Domain.Enums.CefrLevel.B1, ["Schön, dass du da bist.", "Grüße aus München."], "Spanish");
+
+        Assert.Equal("translate", request.Purpose);
+        Assert.Contains("into Spanish", request.UserPrompt, StringComparison.Ordinal);
+        Assert.Contains("exactly 2 translations", request.UserPrompt, StringComparison.Ordinal);
+        Assert.Contains("Grüße aus München.", request.UserPrompt, StringComparison.Ordinal);
+    }
+}

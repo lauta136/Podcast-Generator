@@ -153,10 +153,66 @@ public class OpenAiCompatibleLlmProviderTests
 
     private static LlmRequest Request() => new("test", "system", "user");
 
-    private static OpenAiCompatibleLlmProvider Create(ScriptedHandler handler, int maxRetries = 3, string apiKey = "test-key", string fallback = "")
+    [Fact]
+    public async Task Interactive_requests_use_the_fast_model_and_give_up_after_one_retry()
+    {
+        var handler = new ScriptedHandler(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable), new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        await Assert.ThrowsAsync<LlmUnavailableException>(
+            () => Create(handler, maxRetries: 5, interactiveModel: "fast-model").GenerateTextAsync(Request() with { Interactive = true }, CancellationToken.None));
+
+        Assert.Equal(["fast-model", "fast-model"], handler.Models); // two attempts, not six
+    }
+
+    [Fact]
+    public async Task Background_requests_keep_the_main_model()
+    {
+        var handler = new ScriptedHandler(Json(Ok));
+
+        await Create(handler, interactiveModel: "fast-model").GenerateTextAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(["test-model"], handler.Models);
+    }
+
+    [Fact]
+    public async Task An_interactive_attempt_that_hangs_is_cut_off_by_its_own_deadline()
+    {
+        using var handler = new HangingHandler();
+        var provider = Create(handler, interactiveModel: "fast-model", interactiveTimeoutSeconds: 1);
+        var started = DateTime.UtcNow;
+
+        await Assert.ThrowsAsync<LlmUnavailableException>(
+            () => provider.GenerateTextAsync(Request() with { Interactive = true }, CancellationToken.None));
+
+        Assert.Equal(2, handler.Calls); // one timeout retry, then it gives up
+        Assert.InRange(DateTime.UtcNow - started, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(15));
+    }
+
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    private static OpenAiCompatibleLlmProvider Create(
+        HttpMessageHandler handler,
+        int maxRetries = 3,
+        string apiKey = "test-key",
+        string fallback = "",
+        string interactiveModel = "",
+        int interactiveTimeoutSeconds = 20)
     {
         var options = Options.Create(new LlmOptions
         {
+            InteractiveModel = interactiveModel,
+            InteractiveTimeoutSeconds = interactiveTimeoutSeconds,
+            InteractiveMaxDelaySeconds = 0,
             BaseUrl = "https://llm.test/v1/",
             Model = "test-model",
             ApiKey = apiKey,

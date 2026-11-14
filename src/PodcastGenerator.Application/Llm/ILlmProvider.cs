@@ -9,4 +9,8 @@ public interface ILlmProvider
 }
 
 /// <param name="Purpose">Short label ("outline", "section") for logs and test fakes. Never sent to the provider.</param>
-public sealed record LlmRequest(string Purpose, string SystemPrompt, string UserPrompt, double Temperature = 0.8);
+/// <param name="Interactive">
+/// Someone is waiting for the answer (e.g. a translation click): use the fast model and give up after a short
+/// retry instead of the minutes-long backoff that background generation can afford.
+/// </param>
+public sealed record LlmRequest(string Purpose, string SystemPrompt, string UserPrompt, double Temperature = 0.8, bool Interactive = false);

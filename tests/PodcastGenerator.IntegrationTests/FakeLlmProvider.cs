@@ -26,6 +26,7 @@ public sealed partial class FakeLlmProvider : ILlmProvider
             "outline" => Outline(request),
             "section" => Section(request),
             "proofread" or "proofread-repair" => Proofread(request),
+            "translate" or "translate-repair" => Translate(request),
             _ => throw new NotSupportedException(request.Purpose),
         };
         return Task.FromResult((T)reply);
@@ -98,7 +99,33 @@ public sealed partial class FakeLlmProvider : ILlmProvider
         };
     }
 
+    /// <summary>Thrown by the next translation request, then cleared.</summary>
+    public Exception? FailNextTranslation { get; set; }
+
+    public int TranslationCalls => _calls.Where(kv => kv.Key.EndsWith("|translate", StringComparison.Ordinal)).Sum(kv => kv.Value);
+
+    public string? LastTranslationPrompt { get; private set; }
+
+    private TranslationResponse Translate(LlmRequest request)
+    {
+        LastTranslationPrompt = request.UserPrompt;
+        Count("all", "translate");
+        if (FailNextTranslation is { } failure)
+        {
+            FailNextTranslation = null;
+            throw failure;
+        }
+
+        var json = SentencesJson().Match(request.UserPrompt).Groups[1].Value;
+        var sentences = JsonSerializer.Deserialize<List<string>>(json)!;
+        var language = request.SystemPrompt.Contains("Spanish", StringComparison.Ordinal) ? "ES" : "EN";
+        return new TranslationResponse { Translations = [.. sentences.Select(s => $"{language}: {s}")] };
+    }
+
     private int Count(string topic, string key) => _calls.AddOrUpdate($"{topic}|{key}", 1, (_, n) => n + 1);
+
+    [GeneratedRegex(@"sentences:\s*(\[.*?\])\s*Reply with", RegexOptions.Singleline)]
+    private static partial Regex SentencesJson();
 
     [GeneratedRegex(@"paragraphs:\s*(\[.*?\])\s*Reply with", RegexOptions.Singleline)]
     private static partial Regex ParagraphsJson();

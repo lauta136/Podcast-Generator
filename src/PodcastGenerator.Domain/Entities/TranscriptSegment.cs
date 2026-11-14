@@ -14,8 +14,11 @@ public class TranscriptSegment
 
     public required string Text { get; set; }
 
-    /// <summary>Native-language translation, generated on demand (post-MVP).</summary>
+    /// <summary>Translation into the learner's native language, generated on demand and cached.</summary>
     public string? Translation { get; set; }
+
+    /// <summary>ISO 639-1 code of <see cref="Translation"/>; a different native language means translating again.</summary>
+    public string? TranslationLanguage { get; set; }
 
     public double? StartSec { get; set; }
     public double? EndSec { get; set; }

@@ -8,6 +8,7 @@ import type {
   Estimate,
   Preferences,
   PreferencesUpdate,
+  ParagraphTranslation,
   Progress,
   Transcript,
   User,
@@ -120,5 +121,13 @@ export const api = {
     request<Progress>('GET', `/api/episodes/${id}/progress`, undefined, signal),
   saveProgress: (id: string, positionSec: number, completed: boolean) =>
     request<Progress>('PUT', `/api/episodes/${id}/progress`, { positionSec, completed }),
+  /** Translates the sentence's paragraph. The first call waits for the language model, so it can take seconds. */
+  translate: (episodeId: string, segmentId: string) =>
+    request<ParagraphTranslation>(
+      'POST',
+      `/api/episodes/${episodeId}/segments/${segmentId}/translation`,
+      undefined,
+      AbortSignal.timeout(90_000),
+    ),
   audioUrl: (id: string) => `/api/episodes/${id}/audio`,
 }

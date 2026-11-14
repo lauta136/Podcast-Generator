@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using PodcastGenerator.Application.Common;
+using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Tts;
 
 namespace PodcastGenerator.Api.Middleware;
@@ -39,6 +40,19 @@ public class AppExceptionHandler(IProblemDetailsService problemDetails) : IExcep
                 Status = StatusCodes.Status409Conflict,
                 Title = "Conflict",
                 Detail = e.Message,
+            },
+            // LLM calls made inside a request (translation). Provider details stay in the logs.
+            LlmUnavailableException => new ProblemDetails
+            {
+                Status = StatusCodes.Status503ServiceUnavailable,
+                Title = "Language model unavailable",
+                Detail = "The language model is busy or out of free quota right now. Try again in a minute.",
+            },
+            LlmException => new ProblemDetails
+            {
+                Status = StatusCodes.Status502BadGateway,
+                Title = "Language model error",
+                Detail = "The language model gave an unusable answer. Try again.",
             },
             _ => null,
         };

@@ -41,6 +41,7 @@ One learner in the MVP (seeded local user). Registration and login come right af
 
 ### Listening page
 - Player: play/pause, ±15 s, seek bar, speed 0.75–2×, volume.
+- Translate a sentence with a click (into the native language), shown under its paragraph; another click hides it.
 - Persistent mini-player while navigating the app.
 - Resume position saved every ~5 s and on pause.
 - Transcript under the player: the current sentence is highlighted and auto-scrolled; clicking a sentence seeks to it. Section list for jumping between sections.

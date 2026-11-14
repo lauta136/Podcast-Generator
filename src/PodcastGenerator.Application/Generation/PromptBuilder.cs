@@ -90,6 +90,19 @@ public static class PromptBuilder
         }),
         Temperature: 0.1);
 
+    public static LlmRequest Translate(CefrLevel level, IReadOnlyList<string> sentences, string languageName) => new(
+        "translate",
+        $"You translate German language-learning material into {languageName} for learners. Always reply with a single JSON object exactly as requested.",
+        PromptLibrary.Render(PromptLibrary.TranslateTemplate, new Dictionary<string, string>
+        {
+            ["level"] = level.ToString(),
+            ["language"] = languageName,
+            ["count"] = sentences.Count.ToString(CultureInfo.InvariantCulture),
+            ["sentences_json"] = JsonSerializer.Serialize(sentences, ProofreadJson),
+        }),
+        Temperature: 0.2,
+        Interactive: true);
+
     // Keep umlauts and quotes readable for the model instead of \u escapes.
     private static readonly JsonSerializerOptions ProofreadJson = new()
     {

@@ -394,7 +394,12 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Translation")
-                        .HasColumnType("text");
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("TranslationLanguage")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
 
                     b.HasKey("Id");
 

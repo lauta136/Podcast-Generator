@@ -50,14 +50,15 @@ public sealed partial class OpenAiCompatibleLlmProvider(
             throw new LlmException("LLM is not configured: set Llm:ApiKey and Llm:Model (see README).");
         }
 
+        var model = request.Interactive && !string.IsNullOrWhiteSpace(o.InteractiveModel) ? o.InteractiveModel : o.Model;
         try
         {
-            return await SendToModelAsync(o.Model, request, json, ct);
+            return await SendToModelAsync(model, request, json, ct);
         }
-        catch (LlmUnavailableException e) when (!string.IsNullOrWhiteSpace(o.FallbackModel) && o.FallbackModel != o.Model)
+        catch (LlmUnavailableException e) when (!string.IsNullOrWhiteSpace(o.FallbackModel) && o.FallbackModel != model)
         {
             // Overload and free-tier quotas are per model, so a smaller model is often still available.
-            LogFallback(logger, request.Purpose, o.Model, o.FallbackModel, e.Message);
+            LogFallback(logger, request.Purpose, model, o.FallbackModel, e.Message);
             return await SendToModelAsync(o.FallbackModel, request, json, ct);
         }
     }
@@ -74,9 +75,18 @@ public sealed partial class OpenAiCompatibleLlmProvider(
 
         Exception? lastError = null;
         var timeouts = 0;
-        for (var attempt = 0; attempt <= o.MaxRetries; attempt++)
+        var maxRetries = request.Interactive ? o.InteractiveMaxRetries : o.MaxRetries;
+        var maxDelay = TimeSpan.FromSeconds(request.Interactive ? o.InteractiveMaxDelaySeconds : o.MaxDelaySeconds);
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
             await limiter.WaitAsync(ct);
+
+            // Interactive attempts get their own short deadline; its expiry looks like an HttpClient timeout below.
+            using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            if (request.Interactive)
+            {
+                attemptCts.CancelAfter(TimeSpan.FromSeconds(o.InteractiveTimeoutSeconds));
+            }
 
             TimeSpan? retryAfter = null;
             var overloaded = false;
@@ -88,13 +98,13 @@ public sealed partial class OpenAiCompatibleLlmProvider(
                 };
                 message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", o.ApiKey);
 
-                using var response = await http.SendAsync(message, ct);
+                using var response = await http.SendAsync(message, attemptCts.Token);
                 if (response.IsSuccessStatusCode)
                 {
                     ChatResponse? result;
                     try
                     {
-                        result = await response.Content.ReadFromJsonAsync<ChatResponse>(Json, ct);
+                        result = await response.Content.ReadFromJsonAsync<ChatResponse>(Json, attemptCts.Token);
                     }
                     catch (JsonException e)
                     {
@@ -105,7 +115,7 @@ public sealed partial class OpenAiCompatibleLlmProvider(
                         ?? throw new LlmInvalidResponseException("The reply had no message content.", "");
                 }
 
-                var errorBody = await response.Content.ReadAsStringAsync(ct);
+                var errorBody = await response.Content.ReadAsStringAsync(attemptCts.Token);
                 if (response.StatusCode != HttpStatusCode.TooManyRequests && (int)response.StatusCode < 500)
                 {
                     // 400/401/403/404: retrying won't help. Never log the request (it has the key header).
@@ -132,12 +142,12 @@ public sealed partial class OpenAiCompatibleLlmProvider(
                 }
             }
 
-            if (attempt == o.MaxRetries)
+            if (attempt == maxRetries)
             {
                 break;
             }
 
-            if (retryAfter > TimeSpan.FromSeconds(o.MaxDelaySeconds))
+            if (retryAfter > maxDelay)
             {
                 throw new LlmUnavailableException(
                     $"{model} quota exhausted; the provider asks to wait {retryAfter.Value.TotalMinutes:F0} min. Retry the episode later.",
@@ -145,7 +155,7 @@ public sealed partial class OpenAiCompatibleLlmProvider(
             }
 
             var baseDelay = TimeSpan.FromMilliseconds(overloaded ? o.OverloadBaseDelayMs : o.BaseDelayMs);
-            var delay = RetryDelay.Compute(attempt, retryAfter, baseDelay, TimeSpan.FromSeconds(o.MaxDelaySeconds), Random.Shared);
+            var delay = RetryDelay.Compute(attempt, retryAfter, baseDelay, maxDelay, Random.Shared);
             LogRetry(logger, request.Purpose, attempt + 1, delay.TotalSeconds, lastError?.Message);
             await Task.Delay(delay, clock, ct);
         }

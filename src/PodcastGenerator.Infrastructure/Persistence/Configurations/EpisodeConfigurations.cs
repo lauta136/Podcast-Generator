@@ -62,8 +62,12 @@ public class EpisodeSectionConfiguration : IEntityTypeConfiguration<EpisodeSecti
 
 public class TranscriptSegmentConfiguration : IEntityTypeConfiguration<TranscriptSegment>
 {
-    public void Configure(EntityTypeBuilder<TranscriptSegment> builder) =>
+    public void Configure(EntityTypeBuilder<TranscriptSegment> builder)
+    {
         builder.HasIndex(t => new { t.SectionId, t.Order }).IsUnique();
+        builder.Property(t => t.Translation).HasMaxLength(Application.Translation.TranslationService.MaxTranslationLength);
+        builder.Property(t => t.TranslationLanguage).HasMaxLength(8);
+    }
 }
 
 public class AudioSegmentConfiguration : IEntityTypeConfiguration<AudioSegment>
