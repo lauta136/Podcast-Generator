@@ -13,6 +13,9 @@ One learner in the MVP (seeded local user). Registration and login come right af
 
 ## MVP features
 
+### Accounts
+- Register and sign in with an email and a password. Episodes, preferences and listening positions belong to the account.
+
 ### Preferences (Profile page)
 - Native language (default English). Target language: German only for now.
 - Default CEFR level (A1–C2, default B1).

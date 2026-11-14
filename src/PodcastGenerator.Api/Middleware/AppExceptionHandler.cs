@@ -16,6 +16,12 @@ public class AppExceptionHandler(IProblemDetailsService problemDetails) : IExcep
             {
                 Status = StatusCodes.Status400BadRequest,
             },
+            InvalidCredentialsException e => new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "Sign-in failed",
+                Detail = e.Message,
+            },
             NotFoundException e => new ProblemDetails
             {
                 Status = StatusCodes.Status404NotFound,

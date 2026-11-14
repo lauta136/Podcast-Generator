@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PodcastGenerator.Application.Audio;
+using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Generation;
 using PodcastGenerator.Application.Preferences;
@@ -14,6 +15,7 @@ public static class DependencyInjection
     {
         services.Configure<EpisodeOptions>(configuration.GetSection(EpisodeOptions.SectionName));
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPreferencesService, PreferencesService>();
         services.AddScoped<IEpisodeService, EpisodeService>();
         services.AddScoped<IEpisodeGenerator, EpisodeGenerator>();

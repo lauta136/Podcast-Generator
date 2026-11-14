@@ -1,0 +1,28 @@
+.signin {
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 12vh, 7rem) var(--gutter) 3rem;
+}
+
+.signin-brand {
+  margin-bottom: 2.5rem;
+}
+
+.signin-submit {
+  width: 100%;
+}
+
+.signin-switch {
+  margin-top: 1.5rem;
+  color: var(--muted);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+  cursor: pointer;
+}

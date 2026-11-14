@@ -18,6 +18,7 @@ These override the sections below where they differ.
 - **TTS budgets default to 900,000 characters per family** (90% of 1M), because Google's pages disagree about WaveNet's free tier (1M vs 4M). Usage is counted in UTF-8 bytes, which is never less than what Google bills.
 - **Audio is one stitched MP3 per episode**, joined from per-paragraph chunks. Proofreading runs on every section before the text is final (see ARCHITECTURE).
 - **Speaking speed is separate from the level** (agreed 2026-11-13). Google's `speakingRate` is baked into the audio: each level has a default (A1 0.75 … B1 0.85 … C1/C2 1.0, `Episodes:DefaultSpeakingRate`), preferences may fix a speed (`UserPreferences.SpeakingRate`, null = level default), and each episode can override it (`Episode.SpeakingRate` stores the speed used, range `Episodes:Min/MaxSpeakingRate`, 0.6–1.25). The player's playback speed stays a separate, live control. Length planning uses the measured pace of each voice family instead of words per minute per level: `targetWords = minutes × Tts:Pace:{family}:WordsPerMinute × rate^RateExponent` (WaveNet 160 wpm, exponent 1; Chirp 3: HD 150 wpm, exponent 0.66, because it reacts less to the rate). The speed is part of the audio cache key.
+- **Accounts (JWT), added 2026-11-14.** Register and sign in with email and password (`/api/auth/register`, `login`, `logout`, `me`). The API issues a signed JWT (HS256, 7 days) and carries it in an HttpOnly, SameSite=Strict cookie instead of handing it to JavaScript: the `<audio>` element can't send an Authorization header, and scripts can't read or leak an HttpOnly cookie. An `Authorization: Bearer` header is accepted too, for API clients and tests. Every endpoint requires sign-in unless it opts out. Passwords are hashed with ASP.NET Core Identity's `PasswordHasher` (PBKDF2); only the JwtBearer package is new. The first account claims the seeded local user and its data. No refresh tokens, email verification or password reset yet.
 - `TranscriptSegment` has a nullable `Translation` column, ready for on-demand translation after the MVP.
 - **Test runners:** xUnit (backend), Vitest (frontend). Frontend lint uses oxlint, which ships with the current Vite template.
 
@@ -35,7 +36,7 @@ These override the sections below where they differ.
 - **Frontend:** React + TypeScript + Vite, React Router, plain `fetch` wrapped in a small typed API client, hooks for state. CSS Modules or plain CSS. No extra state libraries, UI kits or Tailwind.
 - **Background work:** built-in `BackgroundService` + a persistent `GenerationJob` table in PostgreSQL. No Hangfire.
 - **Local infra:** `docker-compose.yml` with PostgreSQL only.
-- **Auth:** MVP uses one seeded local user, but every owned entity has a `UserId`. JWT auth (register/login) comes right after the MVP works, as its own PR.
+- **Auth:** email and password accounts with a JWT in an HttpOnly cookie (see §0). Every owned entity has a `UserId`.
 
 ## 3. Providers (behind interfaces)
 ```csharp
@@ -91,6 +92,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - `GET /api/episodes/{id}/audio` (one stitched file, Range supported)
 - `GET/PUT /api/episodes/{id}/progress`, `PUT /api/episodes/{id}/rating`
 - `GET /api/voices?language=de`
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
 
 ## 7. Frontend (MVP screens)
 Home, Create Episode (progress polling every 2–3 s), My Episodes (search, filter, progress, resume), Listening page (persistent mini-player, ±15 s, speeds 0.75–2×, seek, volume, resume position saved every ~5 s and on pause, transcript with click-to-seek and current-segment highlight, section navigation, difficulty rating), Profile/Preferences. Every screen has loading, empty and error states. Mobile-first, keyboard accessible. Show estimated characters/budget impact on the create form.

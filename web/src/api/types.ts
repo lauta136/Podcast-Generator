@@ -18,6 +18,12 @@ export type EpisodeStatus =
 export type VoiceFamily = 'WaveNet' | 'Chirp3HD'
 export type DifficultyRating = 'TooEasy' | 'JustRight' | 'TooHard'
 
+export interface User {
+  id: string
+  email: string | null
+  displayName: string
+}
+
 export interface Preferences {
   nativeLanguage: string
   targetLanguage: string

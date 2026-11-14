@@ -43,6 +43,16 @@ Secrets are never committed. Locally they go in `dotnet user-secrets` for the AP
 |---|---|
 | `Llm:ApiKey` | Gemini or Groq API key |
 | `Tts:Google:ApiKey` | Google Cloud API key restricted to the Text-to-Speech API |
+| `Auth:Jwt:SigningKey` | Random text (32+ bytes) that signs sign-in tokens |
+
+## Accounts
+Everything except sign-in needs an account: register with an email and a password on the first screen.
+- **Signing key.** Set it once, or sign-ins end every time the API restarts (in Development the API then makes up a temporary key and logs a warning; anywhere else it refuses to start):
+  ```bash
+  dotnet user-secrets set "Auth:Jwt:SigningKey" "$(openssl rand -base64 48)" --project src/PodcastGenerator.Api
+  ```
+- **Upgrading from the single-user version.** The first account you register takes over the episodes, preferences and listening positions that existed before sign-in. Later accounts start empty.
+- A sign-in lasts 7 days (`Auth:Jwt:LifetimeHours`). Sign-in attempts are limited to 10 per minute per address (`Auth:MaxAttemptsPerMinute`).
 
 ## LLM setup (free tier)
 Episodes are written by any OpenAI-compatible chat API. Pick one; switching is config only.
