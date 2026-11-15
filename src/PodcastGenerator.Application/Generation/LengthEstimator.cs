@@ -17,8 +17,18 @@ public static class LengthEstimator
             count = Math.Max(1, targetWords / options.SectionMinWords);
         }
 
+        // Short episodes too get an opening and a closing section, so a continuation can go in between if needed.
+        if (count == 1 && targetWords >= 2 * options.ShortSectionMinWords)
+        {
+            count = 2;
+        }
+
         return Math.Max(1, count);
     }
+
+    /// <summary>Words to ask a section for, so that what the model actually writes comes out at <paramref name="words"/>.</summary>
+    public static int SectionAsk(int words, EpisodeOptions options) =>
+        words < options.WrittenShareFromWords ? words : (int)Math.Round(words / Math.Clamp(options.WrittenShare, 0.5, 1.0));
 
     public static int CountWords(string text) =>
         text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;

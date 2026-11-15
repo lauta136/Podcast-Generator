@@ -110,7 +110,7 @@ public partial class EpisodeGenerator(
                 Title = Limit(TextSegmenter.CleanForSpeech(s.Title), 200),
                 Summary = Limit(TextSegmenter.StripControlChars(s.Summary).Trim(), 2000),
                 Focus = s.Focus is null ? null : Limit(TextSegmenter.StripControlChars(s.Focus).Trim(), 300),
-                TargetWords = episode.TargetWords / count,
+                TargetWords = LengthEstimator.SectionAsk(episode.TargetWords / count, options.Value),
             });
         }
 
@@ -259,7 +259,7 @@ public partial class EpisodeGenerator(
             Title = "Noch mehr dazu",
             Summary = "Go deeper: new, related aspects, examples or stories about the topic that earlier sections did not cover yet.",
             Focus = null,
-            TargetWords = Math.Max(o.SectionMinWords / 2, episode.TargetWords - words),
+            TargetWords = LengthEstimator.SectionAsk(Math.Max(o.ShortSectionMinWords / 2, episode.TargetWords - words), o),
         });
         await episodes.SaveChangesAsync(ct);
         return true;
