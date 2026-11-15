@@ -145,6 +145,11 @@ export interface Transcript {
   sections: TranscriptSection[]
 }
 
+export interface ParagraphTranslation {
+  language: string
+  sentences: { id: string; translation: string }[]
+}
+
 export interface Budget {
   modelFamily: VoiceFamily
   used: number

@@ -8,6 +8,7 @@ import { formatTime } from '../lib/format'
 import { formatRate, isGenerating, ratingLabel, statusLabel, styleLabel } from '../lib/labels'
 import { activeSegmentIndex, timeline } from '../lib/transcript'
 import { useApi } from '../lib/useApi'
+import { useTranslations } from '../lib/useTranslations'
 import { SPEEDS, usePlayer } from '../player/usePlayer'
 import './listen.css'
 
@@ -294,7 +295,21 @@ function Rating({ episode, onRated }: { episode: Episode; onRated: (e: Episode) 
   )
 }
 
-/** The transcript: click a sentence to jump there; the sentence being spoken is highlighted and kept in view. */
+type ClickMode = 'play' | 'translate'
+const CLICK_MODE_KEY = 'readAlong.clickMode'
+
+function savedClickMode(): ClickMode {
+  try {
+    return localStorage.getItem(CLICK_MODE_KEY) === 'translate' ? 'translate' : 'play'
+  } catch {
+    return 'play' // storage blocked (private window): just use the default
+  }
+}
+
+/**
+ * The transcript. Clicking a sentence either jumps there or shows its translation under the paragraph,
+ * depending on the mode. The sentence being spoken is highlighted and kept in view.
+ */
 function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeId: string }) {
   const p = usePlayer()
   const segments = useMemo(() => timeline(transcript.sections), [transcript])
@@ -302,9 +317,23 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
   const active = playingThis ? activeSegmentIndex(segments, p.currentTime) : -1
   const activeId = active >= 0 ? segments[active].id : undefined
   const [follow, setFollow] = useState(true)
+  const [mode, setMode] = useState<ClickMode>(savedClickMode)
+  const translations = useTranslations(episodeId)
   const activeRef = useRef<HTMLSpanElement>(null)
-  const seekTo = (start: number | null) => {
-    if (start !== null) p.seek(start)
+  const anyOpen = Object.keys(translations.open).length > 0
+
+  const chooseMode = (next: ClickMode) => {
+    setMode(next)
+    try {
+      localStorage.setItem(CLICK_MODE_KEY, next)
+    } catch {
+      // not remembered; fine
+    }
+  }
+
+  const activate = (s: { id: string; startSec: number | null }) => {
+    if (mode === 'translate') translations.toggle(s.id)
+    else if (s.startSec !== null) p.seek(s.startSec)
   }
 
   useEffect(() => {
@@ -315,40 +344,88 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
 
   return (
     <article className="read-along" aria-label="Transcript">
-      <label className="follow">
-        <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
-        Keep the current sentence in view
-      </label>
+      <div className="read-tools">
+        <fieldset className="click-mode">
+          <legend>Click a sentence to</legend>
+          <div className="keys keys-small">
+            <label>
+              <input type="radio" name="click-mode" checked={mode === 'play'} onChange={() => chooseMode('play')} />
+              <span>Play from there</span>
+            </label>
+            <label>
+              <input type="radio" name="click-mode" checked={mode === 'translate'} onChange={() => chooseMode('translate')} />
+              <span>Translate</span>
+            </label>
+          </div>
+        </fieldset>
+        <label className="follow">
+          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
+          Keep the current sentence in view
+        </label>
+        {anyOpen && (
+          <button type="button" className="link read-tools-hide" onClick={translations.closeAll}>
+            Hide translations
+          </button>
+        )}
+      </div>
       {transcript.sections.map((section) => (
         <section key={section.id} className="read-section">
           <h2>{section.title}</h2>
-          {groupParagraphs(section.segments).map((paragraph) => (
-            <p key={paragraph[0].id}>
-              {paragraph.map((s, i) => (
-                // A <span>, not a <button>: buttons render inline-block, so sentences couldn't flow as one paragraph.
-                <Fragment key={s.id}>
-                  {i > 0 && ' '}
-                  <span
-                    ref={s.id === activeId ? activeRef : undefined}
-                    role="button"
-                    tabIndex={0}
-                    className="transcript-sentence"
-                    data-active={s.id === activeId || undefined}
-                    aria-current={s.id === activeId ? 'true' : undefined}
-                    onClick={() => seekTo(s.startSec)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        seekTo(s.startSec)
-                      }
-                    }}
-                  >
-                    {s.text}
-                  </span>
-                </Fragment>
-              ))}
-            </p>
-          ))}
+          {groupParagraphs(section.segments).map((paragraph) => {
+            const opened = paragraph.filter((s) => translations.open[s.id])
+            return (
+              <Fragment key={paragraph[0].id}>
+                <p>
+                  {paragraph.map((s, i) => (
+                    // A <span>, not a <button>: buttons render inline-block, so sentences couldn't flow as one paragraph.
+                    <Fragment key={s.id}>
+                      {i > 0 && ' '}
+                      <span
+                        ref={s.id === activeId ? activeRef : undefined}
+                        role="button"
+                        tabIndex={0}
+                        className="transcript-sentence"
+                        data-active={s.id === activeId || undefined}
+                        data-translated={translations.open[s.id] ? true : undefined}
+                        aria-current={s.id === activeId ? 'true' : undefined}
+                        aria-expanded={mode === 'translate' ? Boolean(translations.open[s.id]) : undefined}
+                        onClick={() => activate(s)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            activate(s)
+                          }
+                        }}
+                      >
+                        {s.text}
+                      </span>
+                    </Fragment>
+                  ))}
+                </p>
+                {opened.length > 0 && (
+                  <ul className="translations" aria-live="polite">
+                    {opened.map((s) => {
+                      const t = translations.open[s.id]
+                      return (
+                        <li key={s.id} data-state={t.status}>
+                          {t.status === 'loading' && 'Translating…'}
+                          {t.status === 'done' && t.text}
+                          {t.status === 'error' && (
+                            <>
+                              {t.message}{' '}
+                              <button type="button" className="link" onClick={() => translations.toggle(s.id)}>
+                                Try again
+                              </button>
+                            </>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </Fragment>
+            )
+          })}
         </section>
       ))}
     </article>

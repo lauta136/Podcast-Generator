@@ -31,4 +31,18 @@ public class LlmOptions
     public int MaxDelaySeconds { get; set; } = 60;
 
     public int TimeoutSeconds { get; set; } = 120;
+
+    /// <summary>
+    /// Model for interactive requests (translations). A small fast model: the big one can take a minute when busy,
+    /// and nobody waits a minute after a click. Empty uses <see cref="Model"/>.
+    /// </summary>
+    public string InteractiveModel { get; set; } = "";
+
+    /// <summary>Per-attempt limit for interactive requests.</summary>
+    public int InteractiveTimeoutSeconds { get; set; } = 20;
+
+    public int InteractiveMaxRetries { get; set; } = 1;
+
+    /// <summary>Longest pause before an interactive retry.</summary>
+    public int InteractiveMaxDelaySeconds { get; set; } = 2;
 }

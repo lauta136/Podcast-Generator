@@ -1,0 +1,13 @@
+Translate these German sentences from a {{level}} learner podcast into {{language}}. The learner reads your translation to check what they understood, so:
+- give exactly one translation per sentence, in the same order
+- stay close to the German meaning; use natural {{language}}, but don't add, explain or leave out anything
+- keep names, places and numbers as they are
+- the sentences form one paragraph: use the whole paragraph as context
+
+Sentences, as a JSON array of {{count}} sentences:
+{{sentences_json}}
+
+Reply with this JSON:
+{
+  "translations": ["exactly {{count}} translations, in the same order"]
+}

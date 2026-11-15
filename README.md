@@ -85,6 +85,8 @@ Episodes are written by any OpenAI-compatible chat API. Pick one; switching is c
 
 A 10-minute episode uses about 5 LLM requests (1 outline + 2 sections + 2 proofreading passes); a 60-minute one about 19. Turning proofreading off (`Episodes:Proofread=false`) roughly halves that, at the cost of occasional grammar slips in the German. Free tiers may use prompts for training, so the app only ever sends the topic, level and generated text, never personal data.
 
+Sentence translations in the player use `Llm:InteractiveModel` (default `gemini-3.5-flash-lite`): someone is waiting, so they use a fast model and give up after one short retry. Each translated paragraph costs one request and is cached.
+
 Busy models (HTTP 503) are retried with backoff of up to a minute per attempt; timeouts are retried only once, because a timed-out request may still count against the quota. If the main model stays unavailable, the fallback model takes over. If both are out of quota, the episode fails with a clear message instead of waiting for hours. Use **Retry** later; finished sections are kept.
 
 ## Text-to-Speech setup (Google Cloud)

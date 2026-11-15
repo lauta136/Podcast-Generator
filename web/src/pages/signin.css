@@ -17,12 +17,3 @@
   margin-top: 1.5rem;
   color: var(--muted);
 }
-
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  text-decoration: underline;
-  cursor: pointer;
-}

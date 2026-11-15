@@ -5,6 +5,7 @@ using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Application.Episodes;
 using PodcastGenerator.Application.Generation;
 using PodcastGenerator.Application.Preferences;
+using PodcastGenerator.Application.Translation;
 using PodcastGenerator.Application.Tts;
 
 namespace PodcastGenerator.Application;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPreferencesService, PreferencesService>();
+        services.AddScoped<ITranslationService, TranslationService>();
         services.AddScoped<IEpisodeService, EpisodeService>();
         services.AddScoped<IEpisodeGenerator, EpisodeGenerator>();
         services.Configure<TtsOptions>(configuration.GetSection(TtsOptions.SectionName));

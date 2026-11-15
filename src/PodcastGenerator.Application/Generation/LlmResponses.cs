@@ -102,3 +102,15 @@ public sealed class ProofreadCorrection
 
 /// <summary>Generated section text saved before proofreading, so a proofreading failure never regenerates it.</summary>
 public sealed record SectionDraft(IReadOnlyList<string> Paragraphs, string Recap);
+
+public sealed class TranslationResponse
+{
+    public List<string> Translations { get; set => field = value?.Where(t => t is not null).ToList() ?? []; } = [];
+
+    public IReadOnlyList<string> Validate(int sentenceCount) =>
+        Translations.Count != sentenceCount
+            ? [$"\"translations\" must contain exactly {sentenceCount} items, one per sentence, got {Translations.Count}"]
+            : Translations.Any(string.IsNullOrWhiteSpace)
+                ? ["every translation must be non-empty"]
+                : [];
+}
