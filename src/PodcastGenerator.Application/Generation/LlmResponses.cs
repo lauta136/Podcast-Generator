@@ -114,3 +114,41 @@ public sealed class TranslationResponse
                 ? ["every translation must be non-empty"]
                 : [];
 }
+
+/// <summary>The planned series. Stored as <c>Season.ArcJson</c>.</summary>
+public sealed class SeasonArcResponse
+{
+    public string Title { get; set => field = value ?? ""; } = "";
+    public string Description { get; set => field = value ?? ""; } = "";
+    public List<SeasonArcEpisode> Episodes { get; set => field = value?.Where(e => e is not null).ToList() ?? []; } = [];
+
+    public IReadOnlyList<string> Validate(int expectedEpisodes)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(Title))
+        {
+            errors.Add("\"title\" is required");
+        }
+
+        if (Episodes.Count != expectedEpisodes)
+        {
+            errors.Add($"\"episodes\" must contain exactly {expectedEpisodes} items, got {Episodes.Count}");
+        }
+
+        for (var i = 0; i < Episodes.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(Episodes[i].Title) || string.IsNullOrWhiteSpace(Episodes[i].Summary))
+            {
+                errors.Add($"episode {i + 1} needs a \"title\" and a \"summary\"");
+            }
+        }
+
+        return errors;
+    }
+}
+
+public sealed class SeasonArcEpisode
+{
+    public string Title { get; set; } = "";
+    public string Summary { get; set; } = "";
+}

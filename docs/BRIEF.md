@@ -55,17 +55,17 @@ One learner in the MVP (seeded local user). Registration and login come right af
 - No personal data in prompts.
 
 ## Out of scope for the MVP (keep the model ready)
-Vocabulary lists and flashcards, quizzes, per-sentence translation (planned next: tap a sentence to see it in your native language), multiple speakers or dialogues, offline mode, other target languages.
+Vocabulary lists and flashcards, quizzes, multiple speakers or dialogues, offline mode, other target languages.
 
-## Planned after the MVP: Seasons
+## Seasons
 Episodes can be grouped into **seasons** on a big topic, for example "The Spanish Empire".
-- Create a season from a topic, level and number of episodes. The app plans an arc first (one line per episode, in order), then generates episodes from it.
-- Each episode knows what came before: its prompt gets the season arc plus short summaries of earlier episodes, so it builds on them instead of repeating them, and can briefly recap at the start.
-- Existing standalone episodes can be moved into a season, and episodes can be reordered.
-- Library shows seasons as folders with overall progress ("3 of 8 listened"). Playing a season continues to the next episode.
-- Budget estimate on the create form covers the whole season, and episodes are generated one at a time so a season can stop at the TTS budget and resume next month.
-
-For the MVP, episodes have a nullable season reference and an order number so seasons can be added without a breaking schema change.
+- Create a season from a topic, level, number of episodes (2–12), length, style and speaking speed. The app plans an arc first (one line per episode, in order) together with episode 1.
+- Each episode knows what came before: its prompt gets the season arc plus summaries of the latest earlier episodes, so it builds on them instead of repeating them. It opens by naming its part and recalling the last one, and ends with a teaser of the next.
+- Episodes are made one at a time ("Make episode n"), each once the previous one is ready, so a season never spends a month's free quota at once and can continue next month.
+- The Seasons page lists seasons with progress ("2 of 5 parts listened"); a season page shows the arc as numbered parts. The player links to the season and the next part, and the library labels season episodes.
+- The create form estimates one episode and the whole season.
+- Deleting a season deletes its episodes; a single season episode can only be deleted if it's the latest, so the story has no gaps.
+- Not yet: moving standalone episodes into a season, reordering, autoplaying the next part.
 
 ## Success
 A learner can set preferences, create a 10-minute German B1 episode, watch it generate, listen with all controls while following the transcript, close the browser, come back through the library and resume where they left off.

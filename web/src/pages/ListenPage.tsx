@@ -11,6 +11,7 @@ import { useApi } from '../lib/useApi'
 import { useTranslations } from '../lib/useTranslations'
 import { SPEEDS, usePlayer } from '../player/usePlayer'
 import './listen.css'
+import './seasons.css'
 
 const POLL_MS = 2500
 
@@ -176,12 +177,33 @@ function ReadyView({ episode, onRated }: { episode: Episode; onRated: (e: Episod
         <p className="console-meta">
           {styleLabel[episode.style]} at {episode.level}, read at {formatRate(episode.speakingRate)}
         </p>
+        {episode.seasonId && <SeasonNav seasonId={episode.seasonId} order={episode.seasonOrder ?? 1} />}
         <Controls />
         <SectionNav transcript={data.data[0]} />
         <Rating episode={episode} onRated={onRated} />
       </aside>
       <ReadAlong transcript={data.data[0]} episodeId={episode.id} />
     </div>
+  )
+}
+
+/** "Part 2 of 5: <season>", and the next part when it exists. */
+function SeasonNav({ seasonId, order }: { seasonId: string; order: number }) {
+  const season = useApi((signal) => api.getSeason(seasonId, signal), [seasonId])
+  if (!season.data) return null
+  const next = season.data.parts.find((p) => p.order === order + 1)
+  return (
+    <p className="season-link">
+      <Link to={`/seasons/${seasonId}`}>
+        Part {order} of {season.data.episodeCount}: {season.data.title}
+      </Link>
+      {next?.episode?.status === 'Ready' && (
+        <>
+          {' '}
+          <Link to={`/episodes/${next.episode.id}`}>Next part</Link>
+        </>
+      )}
+    </p>
   )
 }
 

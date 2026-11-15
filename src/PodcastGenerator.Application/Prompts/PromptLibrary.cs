@@ -9,7 +9,8 @@ namespace PodcastGenerator.Application.Prompts;
 public static partial class PromptLibrary
 {
     public const string SystemTemplate = "system.v1";
-    public const string OutlineTemplate = "outline.v1";
+    public const string OutlineTemplate = "outline.v2";
+    public const string SeasonArcTemplate = "season-arc.v1";
     public const string SectionTemplate = "section.v2";
     public const string ProofreadTemplate = "proofread.v1";
     public const string TranslateTemplate = "translate.v1";

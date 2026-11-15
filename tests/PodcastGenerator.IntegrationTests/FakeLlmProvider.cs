@@ -19,10 +19,18 @@ public sealed partial class FakeLlmProvider : ILlmProvider
 
     public int Calls(string topic, string purpose) => _calls.GetValueOrDefault($"{topic}|{purpose}");
 
+    /// <summary>Every request, in order, for asserting what context a prompt carried.</summary>
+    public ConcurrentQueue<LlmRequest> Requests { get; } = new();
+
+    public IEnumerable<string> PromptsFor(string purpose, string containing) =>
+        Requests.Where(r => r.Purpose == purpose && r.UserPrompt.Contains(containing, StringComparison.Ordinal)).Select(r => r.UserPrompt);
+
     public Task<T> GenerateJsonAsync<T>(LlmRequest request, CancellationToken ct)
     {
+        Requests.Enqueue(request);
         object reply = request.Purpose switch
         {
+            "season-arc" or "season-arc-repair" => SeasonArc(request),
             "outline" => Outline(request),
             "section" => Section(request),
             "proofread" or "proofread-repair" => Proofread(request),
@@ -99,6 +107,27 @@ public sealed partial class FakeLlmProvider : ILlmProvider
         };
     }
 
+    /// <summary>Topic contains "ArcOutageOnce": the first arc request fails like an overloaded model.</summary>
+    private SeasonArcResponse SeasonArc(LlmRequest request)
+    {
+        var topic = TopicLine().Match(request.UserPrompt).Groups[1].Value.Trim();
+        var attempt = Count(topic, "season-arc");
+        if (topic.Contains("ArcOutageOnce", StringComparison.Ordinal) && attempt == 1)
+        {
+            throw new LlmUnavailableException("Simulated arc outage");
+        }
+
+        var count = int.Parse(EpisodeCountLine().Match(request.UserPrompt).Groups[1].Value, CultureInfo.InvariantCulture);
+        return new SeasonArcResponse
+        {
+            Title = $"Serie {topic}",
+            Description = "Eine Testserie.",
+            Episodes = [.. Enumerable.Range(1, count).Select(i => new SeasonArcEpisode { Title = $"Folge {i} {topic}", Summary = $"Episode {i} covers part {i}." })],
+        };
+    }
+
+    public int ArcCalls(string topic) => Calls(topic, "season-arc");
+
     /// <summary>Thrown by the next translation request, then cleared.</summary>
     public Exception? FailNextTranslation { get; set; }
 
@@ -123,6 +152,9 @@ public sealed partial class FakeLlmProvider : ILlmProvider
     }
 
     private int Count(string topic, string key) => _calls.AddOrUpdate($"{topic}|{key}", 1, (_, n) => n + 1);
+
+    [GeneratedRegex(@"series of (\d+) episodes")]
+    private static partial Regex EpisodeCountLine();
 
     [GeneratedRegex(@"sentences:\s*(\[.*?\])\s*Reply with", RegexOptions.Singleline)]
     private static partial Regex SentencesJson();

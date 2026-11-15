@@ -102,3 +102,85 @@ public class PromptBuilderTests
         Assert.Null(PromptBuilder.DifficultyFeedback(CefrLevel.B1, [DifficultyRating.TooHard, DifficultyRating.TooEasy]));
     }
 }
+
+public class SeasonPromptTests
+{
+    private static Season SeasonWithArc(int count) => new()
+    {
+        Title = "Die Hanse",
+        Topic = "Die Hanse",
+        Level = CefrLevel.B1,
+        EpisodeCount = count,
+        DurationMin = 10,
+        ArcJson = SeasonArcs.Write(new SeasonArcResponse
+        {
+            Title = "Die Hanse",
+            Episodes = [.. Enumerable.Range(1, count).Select(i => new SeasonArcEpisode { Title = $"Teil {i}", Summary = $"Covers {i}." })],
+        }),
+    };
+
+    private static Episode EpisodeOf(Season season, int order) => new()
+    {
+        Topic = $"Teil {order}",
+        Title = $"Teil {order}",
+        Level = CefrLevel.B1,
+        TargetWords = 1360,
+        Season = season,
+        SeasonOrder = order,
+    };
+
+    [Fact]
+    public void Standalone_episodes_get_no_season_context() =>
+        Assert.Equal("", PromptBuilder.SeasonContext(new Episode { Topic = "x", Level = CefrLevel.B1 }));
+
+    [Fact]
+    public void Only_the_latest_earlier_summaries_are_sent_in_full()
+    {
+        var season = SeasonWithArc(6);
+        for (var i = 1; i <= 5; i++)
+        {
+            season.Episodes.Add(new Episode { Topic = $"Teil {i}", SeasonOrder = i, Summary = $"Summary of {i}." });
+        }
+
+        var context = PromptBuilder.SeasonContext(EpisodeOf(season, 6));
+
+        Assert.Contains("episode 6 of 6", context, StringComparison.Ordinal);
+        Assert.Contains("1. Teil 1: Covers 1.", context, StringComparison.Ordinal); // the arc is always complete
+        Assert.DoesNotContain("Summary of 2.", context, StringComparison.Ordinal);
+        Assert.Contains("- Episode 3: Summary of 3.", context, StringComparison.Ordinal);
+        Assert.Contains("- Episode 5: Summary of 5.", context, StringComparison.Ordinal);
+        Assert.EndsWith("Plan only episode 6: Covers 6.", context, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Season_episodes_name_their_part_and_tease_the_next()
+    {
+        var season = SeasonWithArc(3);
+        var sections = new List<EpisodeSection>
+        {
+            new() { Order = 0, Title = "a", Summary = "a" },
+            new() { Order = 1, Title = "b", Summary = "b" },
+        };
+
+        var opening = PromptBuilder.Section(EpisodeOf(season, 2), sections, sections[0], []).UserPrompt;
+        var closing = PromptBuilder.Section(EpisodeOf(season, 2), sections, sections[1], sections[..1]).UserPrompt;
+        var finale = PromptBuilder.Section(EpisodeOf(season, 3), sections, sections[1], sections[..1]).UserPrompt;
+
+        Assert.Contains("this is part 2 of the series \"Die Hanse\"", opening, StringComparison.Ordinal);
+        Assert.Contains("teaser of the next part (\"Teil 3\")", closing, StringComparison.Ordinal);
+        Assert.Contains("wrap-up of the whole series", finale, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Arc_replies_need_the_right_number_of_complete_episodes()
+    {
+        Assert.Empty(new SeasonArcResponse { Title = "T", Episodes = [new() { Title = "a", Summary = "b" }, new() { Title = "c", Summary = "d" }] }.Validate(2));
+        Assert.NotEmpty(new SeasonArcResponse { Title = "T", Episodes = [new() { Title = "a", Summary = "b" }] }.Validate(2));
+        Assert.NotEmpty(new SeasonArcResponse { Title = "T", Episodes = [new() { Title = "a", Summary = " " }, new() { Title = "c", Summary = "d" }] }.Validate(2));
+        Assert.NotEmpty(new SeasonArcResponse { Title = "", Episodes = [new() { Title = "a", Summary = "b" }, new() { Title = "c", Summary = "d" }] }.Validate(2));
+    }
+
+    [Fact]
+    public void The_arc_prompt_asks_for_the_season_size_in_order() =>
+        Assert.Contains("exactly 4 items, in listening order", PromptBuilder.SeasonArc(SeasonWithArc(4)).UserPrompt, StringComparison.Ordinal);
+}

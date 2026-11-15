@@ -1,0 +1,64 @@
+/* A season's parts are numbered because they really are a sequence you listen to in order. */
+.parts-list {
+  list-style: none;
+  margin: 1.5rem 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.part-row {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.part-number {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Made parts light up like the device's signal lamp. */
+.part-row[data-state='episode'] .part-number {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--signal-ink);
+}
+
+.part-row[data-state='later'] .part-title {
+  color: var(--muted);
+}
+
+.part-title {
+  font-size: var(--step-1);
+  margin: 0.15rem 0 0.4rem;
+}
+
+.part-title a {
+  text-decoration: none;
+}
+
+.part-title a:hover {
+  text-decoration: underline;
+}
+
+.part-body > .hint {
+  margin: 0;
+}
+
+.season-footer {
+  margin-top: 2rem;
+}
+
+.season-link {
+  margin: -0.25rem 0 0.75rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+}

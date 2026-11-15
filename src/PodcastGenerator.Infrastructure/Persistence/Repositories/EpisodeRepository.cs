@@ -20,7 +20,9 @@ public class EpisodeRepository(AppDbContext db) : IEpisodeRepository
         WithTranscript().SingleOrDefaultAsync(e => e.Id == episodeId && e.UserId == userId, ct);
 
     public Task<Episode?> GetForGenerationAsync(Guid episodeId, CancellationToken ct) =>
-        WithTranscript().SingleOrDefaultAsync(e => e.Id == episodeId, ct);
+        WithTranscript()
+            .Include(e => e.Season).ThenInclude(s => s!.Episodes) // season context: arc and earlier summaries
+            .SingleOrDefaultAsync(e => e.Id == episodeId, ct);
 
     public Task<GenerationJob?> GetJobAsync(Guid episodeId, CancellationToken ct) =>
         db.GenerationJobs.SingleOrDefaultAsync(j => j.EpisodeId == episodeId, ct);
@@ -63,16 +65,20 @@ public class EpisodeRepository(AppDbContext db) : IEpisodeRepository
             {
                 Episode = e,
                 Progress = db.ListeningProgress.FirstOrDefault(p => p.UserId == userId && p.EpisodeId == e.Id),
+                SeasonTitle = e.Season != null ? e.Season.Title : null,
             })
             .ToListAsync(ct);
 
-        return new EpisodePage([.. rows.Select(r => new EpisodeListItem(r.Episode, r.Progress))], total, query.Page, query.PageSize);
+        return new EpisodePage([.. rows.Select(r => new EpisodeListItem(r.Episode, r.Progress, r.SeasonTitle))], total, query.Page, query.PageSize);
     }
 
     public Task<ListeningProgress?> GetProgressAsync(Guid userId, Guid episodeId, CancellationToken ct) =>
         db.ListeningProgress.SingleOrDefaultAsync(p => p.UserId == userId && p.EpisodeId == episodeId, ct);
 
     public void AddProgress(ListeningProgress progress) => db.ListeningProgress.Add(progress);
+
+    public Task<bool> HasLaterSeasonEpisodeAsync(Guid seasonId, int order, CancellationToken ct) =>
+        db.Episodes.AnyAsync(e => e.SeasonId == seasonId && e.SeasonOrder > order, ct);
 
     public void Remove(Episode episode) => db.Episodes.Remove(episode);
 

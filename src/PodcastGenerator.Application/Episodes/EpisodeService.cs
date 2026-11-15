@@ -11,6 +11,9 @@ namespace PodcastGenerator.Application.Episodes;
 public interface IEpisodeService
 {
     Task<Episode> CreateAsync(CreateEpisode request, CancellationToken ct);
+
+    /// <summary>Queues episode <paramref name="order"/> of a season, with the season's settings. A new season is saved with it.</summary>
+    Task<Episode> CreateInSeasonAsync(Season season, int order, string topic, CancellationToken ct);
     Task<Episode> GetAsync(Guid episodeId, CancellationToken ct);
     Task<EpisodeProgress> GetProgressAsync(Guid episodeId, CancellationToken ct);
     Task<Episode> GetTranscriptAsync(Guid episodeId, CancellationToken ct);
@@ -42,13 +45,31 @@ public class EpisodeService(
     public async Task<Episode> CreateAsync(CreateEpisode request, CancellationToken ct)
     {
         var prefs = await preferences.GetAsync(ct);
-        var o = options.Value;
         var level = request.Level ?? prefs.DefaultLevel;
         var duration = request.DurationMin ?? prefs.DefaultDurationMin;
         var topic = ResolveTopic(request, prefs);
+        return await CreateCoreAsync(prefs, topic, level, duration, request.Style, request.SpeakingRate, season: null, order: null, ct);
+    }
 
+    public async Task<Episode> CreateInSeasonAsync(Season season, int order, string topic, CancellationToken ct)
+    {
+        var prefs = await preferences.GetAsync(ct);
+        return await CreateCoreAsync(prefs, topic, season.Level, season.DurationMin, season.Style, season.SpeakingRate, season, order, ct);
+    }
+
+    private async Task<Episode> CreateCoreAsync(
+        UserPreferences prefs,
+        string topic,
+        CefrLevel level,
+        int duration,
+        EpisodeStyle style,
+        decimal? speakingRate,
+        Season? season,
+        int? order,
+        CancellationToken ct)
+    {
         // Validates duration and speed too. Refuse up front rather than generate text that can't be voiced this month.
-        var estimate = await EstimateAsync(level, duration, request.SpeakingRate, ct);
+        var estimate = await EstimateAsync(level, duration, speakingRate, ct);
         if (!estimate.FitsBudget)
         {
             throw new ConflictException(
@@ -64,13 +85,15 @@ public class EpisodeService(
             Topic = topic,
             LanguageCode = prefs.TargetLanguage,
             Level = level,
-            Style = request.Style,
+            Style = style,
             DurationMin = duration,
             TargetWords = estimate.TargetWords,
             // Resolved now, so a later change of the configured default voice can't invalidate finished audio.
             VoiceName = ttsOptions.Value.ResolveVoice(prefs.VoiceName, prefs.VoiceModelFamily),
             VoiceModelFamily = prefs.VoiceModelFamily,
             SpeakingRate = estimate.SpeakingRate,
+            Season = season,
+            SeasonOrder = order,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -155,6 +178,12 @@ public class EpisodeService(
         if (episode.Status is EpisodeStatus.GeneratingOutline or EpisodeStatus.GeneratingSections or EpisodeStatus.GeneratingAudio)
         {
             throw new ConflictException("The episode is being generated right now; delete it once it is ready or has failed.");
+        }
+
+        // A season's episodes build on each other; removing one from the middle would leave a gap in the story.
+        if (episode is { SeasonId: { } seasonId, SeasonOrder: { } order } && await episodes.HasLaterSeasonEpisodeAsync(seasonId, order, ct))
+        {
+            throw new ConflictException("Later episodes of this season build on this one. Delete the latest episode first, or the whole season.");
         }
 
         var keys = episode.AudioSegments.Select(a => a.StorageKey).Append(episode.AudioStorageKey).OfType<string>().ToList();

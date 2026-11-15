@@ -10,6 +10,8 @@ public class SeasonConfiguration : IEntityTypeConfiguration<Season>
     {
         builder.Property(s => s.Title).HasMaxLength(200);
         builder.Property(s => s.Topic).HasMaxLength(500);
+        builder.Property(s => s.Description).HasMaxLength(2000);
+        builder.Property(s => s.SpeakingRate).HasPrecision(3, 2);
         builder.Property(s => s.ArcJson).HasColumnType("jsonb");
         builder.HasOne<User>().WithMany().HasForeignKey(s => s.UserId);
         builder.HasMany(s => s.Episodes).WithOne(e => e.Season).HasForeignKey(e => e.SeasonId)

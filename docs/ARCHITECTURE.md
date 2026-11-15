@@ -45,6 +45,13 @@ flowchart TD
 - **Speaking speed and length.** Level picks the language, speaking speed picks the pace, and both feed the length. The first real episode came out at 8.3 instead of 10 minutes, because WaveNet reads ~160 words/min and the old per-level estimate assumed 125. Now each voice family has a measured pace (`Tts:Pace`), and `speakingRate` scales it. WaveNet durations scale exactly with the rate (0.85× → 1.17× longer). Chirp 3: HD only scales by about two thirds as much (0.75× → 1.21× longer), so its pace has an exponent of 0.66. Speed is resolved once at creation (request, then preferences, then level default) and stored on the episode, so a retry voices the rest at the same speed. It is part of each chunk's cache key.
 - **Length prompting.** Measured on Gemini, asking for "about N words" produced ~70% of N. Section prompts (`section.v2`) ask for a minimum word count *and* a paragraph count of ~100 words each, which brought sections to ~85%.
 
+## Seasons
+- **The arc is planned inside episode 1's job.** `POST /api/seasons` saves the season and queues episode 1, nothing more, because LLM work never runs inside a request. The job sees a season without an arc, plans it (one `season-arc.v1` call, validated to exactly N parts, one repair), saves it, renames episode 1 after part 1, and only then writes the outline. If planning fails, episode 1 fails and **Retry** plans again.
+- **Each episode builds on the earlier ones.** `PromptBuilder.SeasonContext` adds the whole arc, the summaries of the 3 most recent earlier episodes (older ones are covered by the arc lines, which keeps the prompt bounded) and "plan only episode n" to the outline prompt (`outline.v2`). The first section names the part and recalls the last one, and the last section teases the next part or wraps up the series.
+- **One episode at a time, in order.** `POST /api/seasons/{id}/episodes` refuses (409) until the latest episode is Ready, because its summary is the next one's context. That also spreads the TTS cost over time, and the budget check runs for every episode. Every episode uses the season's settings.
+- **The order has no gaps.** Only the latest season episode can be deleted on its own (then it can be made again); deleting the season deletes all of its episodes and their audio.
+- Measured on a real run (2026-11-15, three 5-minute B1 parts on the Hanseatic League): the arc came out in a sensible order, and part 2 opened with "Heute hörst du den zweiten Teil unserer Reihe … Im ersten Teil haben wir gelernt …" and ended by teasing part 3.
+
 ## Sentence translation
 - **One request per paragraph.** Clicking a sentence translates its whole paragraph: the model gets context (pronouns, ellipsis), and the other sentences of the paragraph are then free. Replies must have exactly one non-empty translation per sentence (one repair, like every LLM JSON reply).
 - **Cached per language.** Each sentence stores its translation and the language it's in. Asking again is answered from the database; changing the native language in preferences translates again on the next click.
@@ -93,7 +100,7 @@ erDiagram
 ```
 - `TranscriptSegment` = one sentence, with `ParagraphIndex`. One paragraph = one `AudioSegment` (one TTS request), so sentence timings are derived from the paragraph's measured duration.
 - `TtsUsage` is project-wide, not per user, because Google's free quota is per billing account.
-- `Season` exists in the schema but has no API yet (post-MVP).
+- A `Season` owns its episodes (`SeasonId`, `SeasonOrder` from 1). The episode delete cascade from a season is `SetNull` in the schema, but deleting a season removes its episodes explicitly.
 
 ## Non-obvious choices
 - **Enums are stored as strings** (`ConfigureConventions`). Reordering or adding enum values can't silently corrupt data, and rows are readable in `psql`.
