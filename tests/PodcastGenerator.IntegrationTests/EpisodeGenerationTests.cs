@@ -64,6 +64,18 @@ public class EpisodeGenerationTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task A_five_minute_episode_has_two_sections_so_it_too_can_be_topped_up()
+    {
+        const string topic = "Brezel ShortOnWords";
+        var id = await EpisodeApi.CreateAsync(_client, topic, durationMin: 5);
+        await WaitForAsync(id, "Ready");
+
+        var transcript = await _client.GetFromJsonAsync<JsonElement>($"/api/episodes/{id}/transcript", JsonDefaults.Web);
+        var titles = transcript.GetProperty("sections").EnumerateArray().Select(s => s.GetProperty("title").GetString()).ToList();
+        Assert.Equal(["Teil 1", "Noch mehr dazu", "Teil 2"], titles); // before: one section, never topped up
+    }
+
+    [Fact]
     public async Task Proofreading_corrects_the_transcript_and_records_what_changed()
     {
         const string topic = "Bauhaus";

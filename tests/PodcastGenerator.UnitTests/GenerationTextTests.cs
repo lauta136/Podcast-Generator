@@ -30,12 +30,20 @@ public class LengthEstimatorTests
     }
 
     [Theory]
-    [InlineData(600, 1)] // 5 min B1
-    [InlineData(1250, 2)] // 10 min B1: two sections of 625
+    [InlineData(680, 2)] // 5 min B1: two sections of 340, so it can still be topped up before the goodbye
+    [InlineData(1000, 2)] // two of 500: under the usual 600, but over the 300 a short episode needs
+    [InlineData(480, 1)] // 5 min at the slowest speed: two sections would be too thin
+    [InlineData(1360, 2)] // 10 min B1: two sections of 680
     [InlineData(7500, 9)] // 60 min B1
-    [InlineData(1000, 1)] // two sections would be under the 600-word minimum
     public void Section_count_keeps_sections_near_target_size(int words, int expected) =>
         Assert.Equal(expected, LengthEstimator.SectionCount(words, _options));
+
+    [Theory]
+    [InlineData(680, 747)] // a 10-minute episode's sections: 680 ÷ 0.91
+    [InlineData(900, 989)]
+    [InlineData(340, 340)] // a 5-minute episode's sections and continuations are written at about 100%: left alone
+    public void Full_size_sections_ask_for_more_because_models_write_about_91_percent(int share, int asked) =>
+        Assert.Equal(asked, LengthEstimator.SectionAsk(share, _options));
 }
 
 public class TextSegmenterTests
