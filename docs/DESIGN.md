@@ -94,7 +94,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - `GET /api/voices?language=de`
 - `POST /api/episodes/{id}/segments/{segmentId}/translation`
 - `GET/POST /api/seasons`, `GET/DELETE /api/seasons/{id}`, `POST /api/seasons/{id}/episodes`
-- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password`, `DELETE /api/auth/account`
 
 ## 7. Frontend (MVP screens)
 Home, Create Episode (progress polling every 2–3 s), My Episodes (search, filter, progress, resume), Listening page (persistent mini-player, ±15 s, speeds 0.75–2×, seek, volume, resume position saved every ~5 s and on pause, transcript with click-to-seek and current-segment highlight, section navigation, difficulty rating), Profile/Preferences. Every screen has loading, empty and error states. Mobile-first, keyboard accessible. Show estimated characters/budget impact on the create form.

@@ -13,6 +13,21 @@ public sealed class CredentialsRequest
     public string Password { get; init; } = "";
 }
 
+public sealed class ChangePasswordRequest
+{
+    [Required, StringLength(128)]
+    public string CurrentPassword { get; init; } = "";
+
+    [Required, StringLength(128)]
+    public string NewPassword { get; init; } = "";
+}
+
+public sealed class DeleteAccountRequest
+{
+    [Required, StringLength(128)]
+    public string Password { get; init; } = "";
+}
+
 public sealed record UserDto(Guid Id, string? Email, string DisplayName)
 {
     public static UserDto From(User u) => new(u.Id, u.Email, u.DisplayName);

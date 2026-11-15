@@ -41,6 +41,26 @@ public class AuthController(IAuthService auth, TokenService tokens, ICurrentUser
         return NoContent();
     }
 
+    /// <summary>Changes the password and signs out every other device; this one gets a fresh sign-in.</summary>
+    [HttpPut("password")]
+    [EnableRateLimiting(AuthSetup.RateLimitPolicy)]
+    public async Task<UserDto> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        var user = await auth.ChangePasswordAsync(currentUser.UserId, request.CurrentPassword, request.NewPassword, ct);
+        tokens.SignIn(HttpContext, user);
+        return UserDto.From(user);
+    }
+
+    /// <summary>Deletes the account with all of its data and audio, and signs out.</summary>
+    [HttpDelete("account")]
+    [EnableRateLimiting(AuthSetup.RateLimitPolicy)]
+    public async Task<IActionResult> DeleteAccount(DeleteAccountRequest request, CancellationToken ct)
+    {
+        await auth.DeleteAccountAsync(currentUser.UserId, request.Password, ct);
+        tokens.SignOut(HttpContext);
+        return NoContent();
+    }
+
     /// <summary>The signed-in user. The web app calls it on load to decide between the app and the sign-in screen.</summary>
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me(CancellationToken ct)

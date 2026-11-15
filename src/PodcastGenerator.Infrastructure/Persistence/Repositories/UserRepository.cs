@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Domain.Entities;
+using PodcastGenerator.Domain.Enums;
 
 namespace PodcastGenerator.Infrastructure.Persistence.Repositories;
 
@@ -47,6 +48,25 @@ public class UserRepository(AppDbContext db) : IUserRepository
             return false;
         }
     }
+
+    public async Task<IReadOnlyList<string>> AudioKeysAsync(Guid userId, CancellationToken ct)
+    {
+        var chunks = await db.AudioSegments
+            .Where(a => a.StorageKey != null && db.Episodes.Any(e => e.Id == a.EpisodeId && e.UserId == userId))
+            .Select(a => a.StorageKey!)
+            .ToListAsync(ct);
+        var stitched = await db.Episodes
+            .Where(e => e.UserId == userId && e.AudioStorageKey != null)
+            .Select(e => e.AudioStorageKey!)
+            .ToListAsync(ct);
+        return [.. chunks, .. stitched];
+    }
+
+    public Task<bool> HasEpisodesInProgressAsync(Guid userId, CancellationToken ct) =>
+        db.Episodes.AnyAsync(e => e.UserId == userId && (e.Status == EpisodeStatus.Pending || e.Status == EpisodeStatus.GeneratingOutline
+            || e.Status == EpisodeStatus.GeneratingSections || e.Status == EpisodeStatus.GeneratingAudio), ct);
+
+    public void Remove(User user) => db.Users.Remove(user);
 
     public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }

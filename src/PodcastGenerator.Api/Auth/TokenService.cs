@@ -14,6 +14,9 @@ namespace PodcastGenerator.Api.Auth;
 /// </summary>
 public class TokenService(IOptions<JwtOptions> options, TimeProvider clock)
 {
+    /// <summary>The account's <c>SessionVersion</c> when the token was issued.</summary>
+    public const string SessionVersionClaim = "sv";
+
     public static SymmetricSecurityKey KeyFrom(JwtOptions o) => new(Encoding.UTF8.GetBytes(o.SigningKey));
 
     public (string Token, DateTimeOffset Expires) Create(User user)
@@ -25,7 +28,11 @@ public class TokenService(IOptions<JwtOptions> options, TimeProvider clock)
         {
             Issuer = o.Issuer,
             Audience = o.Audience,
-            Subject = new ClaimsIdentity([new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString())]),
+            Subject = new ClaimsIdentity(
+            [
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(SessionVersionClaim, user.SessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), ClaimValueTypes.Integer32),
+            ]),
             IssuedAt = now.UtcDateTime,
             NotBefore = now.UtcDateTime,
             Expires = expires.UtcDateTime,

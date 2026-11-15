@@ -248,6 +248,35 @@ textarea {
   color: var(--danger);
 }
 
+.button-danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--panel);
+}
+
+/* ---------- Account (profile) ---------- */
+
+.account-panel {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.account-form {
+  margin-top: 1.5rem;
+}
+
+.account-form h3 {
+  font-size: var(--step-0);
+  font-family: var(--sans);
+}
+
+.account-danger {
+  padding: 1rem;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-panel);
+}
+
 .field {
   display: grid;
   gap: 0.35rem;

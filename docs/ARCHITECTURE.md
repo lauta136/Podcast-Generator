@@ -71,7 +71,11 @@ flowchart TD
 - **Signing key.** `Auth:Jwt:SigningKey` must be at least 32 bytes; startup fails without it, except in Development, where a temporary key is generated and a warning logged.
 - **The first account claims the local user.** Before accounts, everything belonged to one seeded user. The first registration takes that row over with one conditional `UPDATE ... WHERE Email IS NULL`, so existing episodes are kept and two simultaneous first registrations can't both get it.
 - **In the web app,** `AuthGate` asks `GET /api/auth/me` on load and shows either the app or the sign-in screen. Any later 401 (the session ran out) fires an event that brings the sign-in screen back. The signed-in part of the app, including the audio player, unmounts on sign-out.
-- **Not done yet:** refresh tokens (a sign-in simply lasts 7 days), email verification, password reset, deleting an account.
+- **Session version.** Each user has a `SessionVersion`, and every token carries the version it was issued with (claim `sv`; tokens from before this existed count as 0). On each request, after the signature check, `OnTokenValidated` looks the user up by key and refuses the token if the account is gone or the version is older. That one primary-key lookup per request is what makes "sign out everywhere" and account deletion take effect at once, without a token blocklist.
+- **Change password** (`PUT /api/auth/password`) needs the current password, raises the session version, and re-issues the cookie, so every other device is signed out and this one stays in.
+- **Delete account** (`DELETE /api/auth/account`) needs the password and is refused while an episode is being generated. It collects the account's audio keys, deletes the user row (the database cascades to preferences, seasons, episodes and listening progress), then deletes the files and the cookie.
+- A wrong password in these two requests is a 400 field error, not 401: the user is signed in, and 401 would send the web app to the sign-in screen.
+- **Not done yet:** refresh tokens (a sign-in simply lasts 7 days), email verification, password reset by email (it needs an email provider).
 
 ## Frontend
 `web/` is React + TypeScript + Vite, with React Router and plain `fetch`. There's no state library, UI kit or icon package.

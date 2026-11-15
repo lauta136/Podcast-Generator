@@ -470,6 +470,9 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int>("SessionVersion")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -482,7 +485,8 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            DisplayName = "Local learner"
+                            DisplayName = "Local learner",
+                            SessionVersion = 0
                         });
                 });
 

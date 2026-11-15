@@ -99,6 +99,9 @@ export const api = {
   register: (email: string, password: string) => request<User>('POST', '/api/auth/register', { email, password }),
   login: (email: string, password: string) => request<User>('POST', '/api/auth/login', { email, password }),
   logout: () => request<void>('POST', '/api/auth/logout'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<User>('PUT', '/api/auth/password', { currentPassword, newPassword }),
+  deleteAccount: (password: string) => request<void>('DELETE', '/api/auth/account', { password }),
 
   getPreferences: (signal?: AbortSignal) => request<Preferences>('GET', '/api/preferences', undefined, signal),
   savePreferences: (p: PreferencesUpdate) => request<Preferences>('PUT', '/api/preferences', p),
