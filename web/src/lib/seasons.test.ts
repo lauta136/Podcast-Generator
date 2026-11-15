@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EpisodeListItem, SeasonDetail } from '../api/types'
-import { partStates, seasonIsBusy } from './seasons'
+import { findNextPart, partStates, seasonIsBusy } from './seasons'
 
 const episode = (order: number, status: EpisodeListItem['status']): EpisodeListItem => ({
   id: `e${order}`,
@@ -60,5 +60,21 @@ describe('seasonIsBusy', () => {
     expect(seasonIsBusy(season([episode(1, 'GeneratingSections')]))).toBe(true)
     expect(seasonIsBusy(season([episode(1, 'Ready')]))).toBe(false)
     expect(seasonIsBusy(season([episode(1, 'Failed')]))).toBe(false)
+  })
+})
+
+describe('findNextPart', () => {
+  it('offers the next part when it is ready', () => {
+    expect(findNextPart(season([episode(1, 'Ready'), episode(2, 'Ready')]), 1)).toEqual({ kind: 'ready', id: 'e2', title: 'Teil 2', order: 2 })
+  })
+
+  it('says the next part is not ready while it is missing, being made or failed', () => {
+    expect(findNextPart(season([episode(1, 'Ready')]), 1)).toEqual({ kind: 'not-ready', title: 'Teil 2', order: 2 })
+    expect(findNextPart(season([episode(1, 'Ready'), episode(2, 'GeneratingAudio')]), 1)?.kind).toBe('not-ready')
+    expect(findNextPart(season([episode(1, 'Ready'), episode(2, 'Failed')]), 1)?.kind).toBe('not-ready')
+  })
+
+  it('offers nothing after the last part', () => {
+    expect(findNextPart(season([episode(1, 'Ready'), episode(2, 'Ready'), episode(3, 'Ready')]), 3)).toBeNull()
   })
 })

@@ -382,6 +382,39 @@ fieldset {
   color: var(--muted);
 }
 
+/* ---------- Up next (season autoplay) ---------- */
+
+/* Sits above everything at the bottom, including the phone layout's pinned player controls. */
+.up-next {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 20;
+  transform: translateX(-50%);
+  width: min(36rem, calc(100% - 2 * var(--gutter)));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--signal);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.up-next-text {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.up-next-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
 /* ---------- Mini player ---------- */
 
 .mini-player {

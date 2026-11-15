@@ -3,6 +3,7 @@ import { api } from './api/client'
 import { AuthGate } from './auth/AuthGate'
 import { useAuth } from './auth/useAuth'
 import { MiniPlayer } from './components/MiniPlayer'
+import { UpNextBar } from './components/UpNextBar'
 import { useApi } from './lib/useApi'
 import { CreatePage } from './pages/CreatePage'
 import { HomePage } from './pages/HomePage'
@@ -74,6 +75,7 @@ function Shell() {
       <main id="main">
         <Outlet />
       </main>
+      <UpNextBar />
       <MiniPlayer />
     </div>
   )
