@@ -28,7 +28,62 @@ public static class PromptBuilder
             ["section_count"] = sectionCount.ToString(CultureInfo.InvariantCulture),
             ["section_words"] = (episode.TargetWords / sectionCount).ToString(CultureInfo.InvariantCulture),
             ["feedback"] = difficultyFeedback ?? "",
+            ["season"] = SeasonContext(episode),
         }));
+
+    /// <summary>Earlier episodes whose summaries are sent in full; older ones appear only as arc lines.</summary>
+    public const int SeasonSummariesSent = 3;
+
+    public static LlmRequest SeasonArc(Season season) => new(
+        "season-arc",
+        $"You plan series for a German-learning podcast at CEFR level {season.Level}. Always reply with a single JSON object exactly as requested.",
+        PromptLibrary.Render(PromptLibrary.SeasonArcTemplate, new Dictionary<string, string>
+        {
+            ["count"] = season.EpisodeCount.ToString(CultureInfo.InvariantCulture),
+            ["level"] = season.Level.ToString(),
+            ["topic"] = season.Topic,
+            ["style"] = StyleDescription(season.Style),
+            ["minutes"] = season.DurationMin.ToString(CultureInfo.InvariantCulture),
+        }),
+        Temperature: 0.7);
+
+    /// <summary>
+    /// For a season episode: the series plan, what earlier episodes said, and this episode's line. Empty otherwise.
+    /// Needs <c>episode.Season</c> with its episodes loaded.
+    /// </summary>
+    public static string SeasonContext(Episode episode)
+    {
+        if (episode is not { Season: { } season, SeasonOrder: { } order } || SeasonArcs.Read(season) is not { } arc)
+        {
+            return "";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine(CultureInfo.InvariantCulture, $"This is episode {order} of {arc.Episodes.Count} of the series \"{arc.Title}\" (series topic: {season.Topic}).");
+        text.AppendLine("Series plan:");
+        for (var i = 0; i < arc.Episodes.Count; i++)
+        {
+            text.AppendLine(CultureInfo.InvariantCulture, $"{i + 1}. {arc.Episodes[i].Title}: {arc.Episodes[i].Summary}");
+        }
+
+        var earlier = season.Episodes
+            .Where(e => e.SeasonOrder < order && !string.IsNullOrWhiteSpace(e.Summary))
+            .OrderBy(e => e.SeasonOrder)
+            .TakeLast(SeasonSummariesSent)
+            .ToList();
+        if (earlier.Count > 0)
+        {
+            text.AppendLine("What the most recent earlier episodes actually said (build on it, don't repeat it):");
+            foreach (var e in earlier)
+            {
+                text.AppendLine(CultureInfo.InvariantCulture, $"- Episode {e.SeasonOrder}: {e.Summary}");
+            }
+        }
+
+        text.Append(CultureInfo.InvariantCulture, $"Plan only episode {order}: {arc.Episodes[order - 1].Summary}");
+        return text.ToString();
+    }
+
 
     /// <param name="previous">Earlier completed sections, in order. Only their recaps and the last sentences are used.</param>
     public static LlmRequest Section(Episode episode, IReadOnlyList<EpisodeSection> allSections, EpisodeSection section, IReadOnlyList<EpisodeSection> previous)
@@ -51,7 +106,7 @@ public static class PromptBuilder
 
         var isFirst = section.Order == 0 && !section.IsContinuation;
         var isLast = section.Order == allSections.Count - 1 && !section.IsContinuation;
-        var position = (isFirst, isLast) switch
+        var position = SeasonPosition(episode, isFirst, isLast) ?? (isFirst, isLast) switch
         {
             (true, true) => "Open the episode with a short greeting and introduction, and end with a short goodbye.",
             (true, false) => "Open the episode with a short greeting and introduce the topic. Do not say goodbye.",
@@ -77,6 +132,28 @@ public static class PromptBuilder
                 ["previous_recaps"] = recaps.Count > 0 ? string.Join("\n", recaps) : "(nothing yet)",
                 ["previous_ending"] = ending,
             }));
+    }
+
+    /// <summary>Greeting and goodbye for season episodes: name the part, recall the last one, tease the next.</summary>
+    private static string? SeasonPosition(Episode episode, bool isFirst, bool isLast)
+    {
+        if (episode is not { Season: { } season, SeasonOrder: { } order } || SeasonArcs.Read(season) is not { } arc || !(isFirst || isLast))
+        {
+            return null;
+        }
+
+        var opening = order == 1
+            ? $"Open the episode with a short greeting and introduce the series \"{arc.Title}\" and this first part."
+            : $"Open the episode with a short greeting, say this is part {order} of the series \"{arc.Title}\", and recall in one or two sentences where the last part ended.";
+        var closing = order < arc.Episodes.Count
+            ? $"End with a short wrap-up, a one-sentence teaser of the next part (\"{arc.Episodes[order].Title}\") and a goodbye."
+            : "End with a short wrap-up of the whole series and a goodbye.";
+        return (isFirst, isLast) switch
+        {
+            (true, true) => $"{opening} {closing}",
+            (true, false) => $"{opening} Do not say goodbye.",
+            _ => $"Continue smoothly from the previous section. {closing}",
+        };
     }
 
     public static LlmRequest Proofread(Episode episode, IReadOnlyList<string> paragraphs) => new(

@@ -50,13 +50,17 @@ public sealed record EpisodeListItemDto(
     double? AudioDurationSec,
     DifficultyRating? DifficultyRating,
     DateTimeOffset CreatedAt,
-    ProgressDto? Progress)
+    ProgressDto? Progress,
+    Guid? SeasonId,
+    int? SeasonOrder,
+    string? SeasonTitle)
 {
     public static EpisodeListItemDto From(EpisodeListItem item)
     {
         var e = item.Episode;
         return new(e.Id, e.Title, e.Topic, e.Level, e.Style, e.DurationMin, e.SpeakingRate, e.Status, e.AudioDurationSec,
-            e.DifficultyRating, e.CreatedAt, item.Progress is null ? null : ProgressDto.From(item.Progress));
+            e.DifficultyRating, e.CreatedAt, item.Progress is null ? null : ProgressDto.From(item.Progress),
+            e.SeasonId, e.SeasonOrder, item.SeasonTitle);
     }
 }
 
@@ -86,11 +90,13 @@ public sealed record EpisodeDto(
     string? LastError,
     DifficultyRating? DifficultyRating,
     double? AudioDurationSec,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    Guid? SeasonId,
+    int? SeasonOrder)
 {
     public static EpisodeDto From(Episode e) => new(
         e.Id, e.Title, e.Description, e.Topic, e.LanguageCode, e.Level, e.Style, e.DurationMin, e.TargetWords, e.SpeakingRate,
-        e.Status, e.LastError, e.DifficultyRating, e.AudioDurationSec, e.CreatedAt);
+        e.Status, e.LastError, e.DifficultyRating, e.AudioDurationSec, e.CreatedAt, e.SeasonId, e.SeasonOrder);
 }
 
 public sealed record EpisodeStatusDto(

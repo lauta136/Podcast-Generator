@@ -1,6 +1,7 @@
 import type {
   Budget,
   CreateEpisodeRequest,
+  CreateSeasonRequest,
   DifficultyRating,
   Episode,
   EpisodePage,
@@ -10,6 +11,8 @@ import type {
   PreferencesUpdate,
   ParagraphTranslation,
   Progress,
+  SeasonDetail,
+  SeasonSummary,
   Transcript,
   User,
   Voice,
@@ -130,4 +133,10 @@ export const api = {
       AbortSignal.timeout(90_000),
     ),
   audioUrl: (id: string) => `/api/episodes/${id}/audio`,
+
+  listSeasons: (signal?: AbortSignal) => request<SeasonSummary[]>('GET', '/api/seasons', undefined, signal),
+  getSeason: (id: string, signal?: AbortSignal) => request<SeasonDetail>('GET', `/api/seasons/${id}`, undefined, signal),
+  createSeason: (r: CreateSeasonRequest) => request<Episode>('POST', '/api/seasons', r),
+  createNextEpisode: (seasonId: string) => request<Episode>('POST', `/api/seasons/${seasonId}/episodes`),
+  deleteSeason: (id: string) => request<void>('DELETE', `/api/seasons/${id}`),
 }

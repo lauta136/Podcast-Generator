@@ -26,6 +26,9 @@ public interface IEpisodeRepository
 
     void AddProgress(ListeningProgress progress);
 
+    /// <summary>True if the season has an episode after <paramref name="order"/>.</summary>
+    Task<bool> HasLaterSeasonEpisodeAsync(Guid seasonId, int order, CancellationToken ct);
+
     void Remove(Episode episode);
 
     Task SaveChangesAsync(CancellationToken ct);

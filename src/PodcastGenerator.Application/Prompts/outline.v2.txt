@@ -2,6 +2,7 @@ Plan one podcast episode.
 
 Topic: {{topic}}
 Style: {{style}}
+{{season}}
 Length: about {{target_words}} spoken words in total, in exactly {{section_count}} sections of about {{section_words}} words each.
 {{feedback}}
 

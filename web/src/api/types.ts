@@ -62,6 +62,8 @@ export interface Episode {
   difficultyRating: DifficultyRating | null
   audioDurationSec: number | null
   createdAt: string
+  seasonId: string | null
+  seasonOrder: number | null
 }
 
 export interface EpisodeStatusInfo {
@@ -115,6 +117,9 @@ export interface EpisodeListItem {
   difficultyRating: DifficultyRating | null
   createdAt: string
   progress: Progress | null
+  seasonId: string | null
+  seasonOrder: number | null
+  seasonTitle: string | null
 }
 
 export interface EpisodePage {
@@ -143,6 +148,52 @@ export interface Transcript {
   episodeId: string
   title: string | null
   sections: TranscriptSection[]
+}
+
+export interface CreateSeasonRequest {
+  topic: string
+  level?: CefrLevel
+  episodeCount: number
+  durationMin?: number
+  style: EpisodeStyle
+  speakingRate?: number
+}
+
+export interface SeasonSummary {
+  id: string
+  title: string
+  description: string | null
+  topic: string
+  level: CefrLevel
+  episodeCount: number
+  episodesCreated: number
+  episodesReady: number
+  episodesFinished: number
+  planned: boolean
+  createdAt: string
+}
+
+export interface SeasonPart {
+  order: number
+  title: string
+  summary: string
+  episode: EpisodeListItem | null
+}
+
+export interface SeasonDetail {
+  id: string
+  title: string
+  description: string | null
+  topic: string
+  level: CefrLevel
+  style: EpisodeStyle
+  episodeCount: number
+  durationMin: number
+  speakingRate: number | null
+  planned: boolean
+  parts: SeasonPart[]
+  episodes: EpisodeListItem[]
+  createdAt: string
 }
 
 export interface ParagraphTranslation {

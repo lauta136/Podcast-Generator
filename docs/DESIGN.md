@@ -13,7 +13,7 @@ These override the sections below where they differ.
 - **One worker loop** with a lease. The lease still protects restarts and expired locks.
 - **Repositories** are query-specific, not generic. Validation uses DataAnnotations (no FluentValidation dependency).
 - **Native language default is English** (configurable), replacing Spanish in §1.
-- **Seasons come after the MVP** (see the brief). For the MVP, `Episode` has a nullable `SeasonId` and `SeasonOrder`, and a `Season` table (`UserId`, title, topic, level, arc JSON) exists but has no API or UI yet. Episode prompts will later take the season arc and summaries of earlier episodes, so each `Episode` stores a short `Summary` generated with its outline.
+- **Seasons, added 2026-11-15** (see the brief). `Season` stores the settings every episode uses (level, style, count, length, speaking speed) and the arc JSON. The arc is planned in episode 1's background job (never in the request); later episodes are created one at a time with `POST /api/seasons/{id}/episodes` once the latest is Ready. Outline prompts (`outline.v2`) get the arc and the summaries of the last 3 earlier episodes (`Episode.Summary`, the joined section recaps); section prompts name the part and tease the next.
 - **TTS auth is an API key** restricted to the Text-to-Speech API (`Tts:Google:ApiKey`), over REST, instead of a service account + SDK: no new dependencies. Agreed 2026-11-09.
 - **TTS budgets default to 900,000 characters per family** (90% of 1M), because Google's pages disagree about WaveNet's free tier (1M vs 4M). Usage is counted in UTF-8 bytes, which is never less than what Google bills.
 - **Audio is one stitched MP3 per episode**, joined from per-paragraph chunks. Proofreading runs on every section before the text is final (see ARCHITECTURE).
@@ -82,7 +82,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - Validate every LLM JSON response; on invalid JSON retry once with a repair prompt, then fail the step.
 
 ## 5. Data model
-`User`, `UserPreferences`, `Season` (post-MVP, see §0), `Episode`, `EpisodeSection`, `TranscriptSegment`, `AudioSegment` (voice, model family, provider, duration, storage key), `ListeningProgress`, `GenerationJob`, `TtsUsage`. Indexes for library search/filter (title, topic, language, level, status).
+`User`, `UserPreferences`, `Season` (see §0), `Episode`, `EpisodeSection`, `TranscriptSegment`, `AudioSegment` (voice, model family, provider, duration, storage key), `ListeningProgress`, `GenerationJob`, `TtsUsage`. Indexes for library search/filter (title, topic, language, level, status).
 
 ## 6. API (MVP)
 - `GET/PUT /api/preferences`
@@ -93,6 +93,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - `GET/PUT /api/episodes/{id}/progress`, `PUT /api/episodes/{id}/rating`
 - `GET /api/voices?language=de`
 - `POST /api/episodes/{id}/segments/{segmentId}/translation`
+- `GET/POST /api/seasons`, `GET/DELETE /api/seasons/{id}`, `POST /api/seasons/{id}/episodes`
 - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
 
 ## 7. Frontend (MVP screens)

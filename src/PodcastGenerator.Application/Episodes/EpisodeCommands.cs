@@ -21,7 +21,7 @@ public sealed record EpisodeProgress(
 /// <summary>Library filters. Search matches title or topic, case-insensitively.</summary>
 public sealed record EpisodeQuery(string? Search, CefrLevel? Level, EpisodeStatus? Status, int Page, int PageSize);
 
-public sealed record EpisodeListItem(Episode Episode, ListeningProgress? Progress);
+public sealed record EpisodeListItem(Episode Episode, ListeningProgress? Progress, string? SeasonTitle = null);
 
 public sealed record EpisodePage(IReadOnlyList<EpisodeListItem> Items, int Total, int Page, int PageSize);
 

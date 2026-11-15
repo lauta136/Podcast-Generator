@@ -27,6 +27,11 @@ function EpisodeRow({ item: e, onDelete }: { item: EpisodeListItem; onDelete?: (
           {e.title ?? e.topic}
         </Link>
         <p className="episode-meta">
+          {e.seasonTitle && (
+            <>
+              Part {e.seasonOrder} of {e.seasonTitle}.{' '}
+            </>
+          )}
           {styleLabel[e.style]} at {e.level}, {e.audioDurationSec ? formatTime(e.audioDurationSec) : `about ${e.durationMin} min`}
           {e.status !== 'Ready' && (
             <span className="episode-status" data-status={isGenerating(e.status) ? 'working' : e.status}>

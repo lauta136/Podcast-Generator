@@ -1,0 +1,20 @@
+Plan a podcast series of {{count}} episodes for learners of German at level {{level}}.
+
+Topic: {{topic}}
+Style: {{style}}
+Each episode is about {{minutes}} minutes long.
+
+The episodes come out one after another and are listened to in order. Together they tell the topic in a sensible order (chronological for history, from simple to complex otherwise). Each episode has its own clear focus and doesn't overlap with the others, so later episodes can build on earlier ones.
+
+Reply with this JSON:
+{
+  "title": "series title in German, short and inviting",
+  "description": "one or two sentences in simple German describing the series",
+  "episodes": [
+    {
+      "title": "episode title in German",
+      "summary": "2-3 sentences in English: what exactly this episode covers, specific enough to plan it"
+    }
+  ]
+}
+"episodes" must contain exactly {{count}} items, in listening order.

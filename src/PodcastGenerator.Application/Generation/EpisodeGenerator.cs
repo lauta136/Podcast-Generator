@@ -40,6 +40,11 @@ public partial class EpisodeGenerator(
         if (episode.Sections.Count == 0)
         {
             await SetStatusAsync(episode, EpisodeStatus.GeneratingOutline, ct);
+            if (episode.Season is { ArcJson: null } season)
+            {
+                await PlanSeasonAsync(episode, season, ct);
+            }
+
             await GenerateOutlineAsync(episode, ct);
         }
 
@@ -58,6 +63,31 @@ public partial class EpisodeGenerator(
         await audio.RunAsync(episode, ct);
 
         await SetStatusAsync(episode, EpisodeStatus.Ready, ct);
+    }
+
+    /// <summary>The first episode's job plans the whole season. Saved before the outline, so a retry skips it.</summary>
+    private async Task PlanSeasonAsync(Episode episode, Season season, CancellationToken ct)
+    {
+        var arc = await ValidatedJson.GenerateAsync<SeasonArcResponse>(
+            llm, PromptBuilder.SeasonArc(season), r => r.Validate(season.EpisodeCount), ct);
+        foreach (var e in arc.Episodes)
+        {
+            e.Title = Limit(TextSegmenter.CleanForSpeech(e.Title), 200);
+            e.Summary = Limit(TextSegmenter.StripControlChars(e.Summary).Trim(), 2000);
+        }
+
+        arc.Title = Limit(TextSegmenter.CleanForSpeech(arc.Title), 200);
+        arc.Description = Limit(TextSegmenter.CleanForSpeech(arc.Description), 2000);
+        season.ArcJson = SeasonArcs.Write(arc);
+        season.Title = arc.Title;
+        season.Description = arc.Description;
+        season.UpdatedAt = clock.GetUtcNow();
+        if (episode.SeasonOrder is { } order)
+        {
+            episode.Topic = Limit(arc.Episodes[order - 1].Title, 500);
+        }
+
+        await episodes.SaveChangesAsync(ct);
     }
 
     private async Task GenerateOutlineAsync(Episode episode, CancellationToken ct)
