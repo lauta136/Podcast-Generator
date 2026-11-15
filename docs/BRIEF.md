@@ -65,7 +65,8 @@ Episodes can be grouped into **seasons** on a big topic, for example "The Spanis
 - The Seasons page lists seasons with progress ("2 of 5 parts listened"); a season page shows the arc as numbered parts. The player links to the season and the next part, and the library labels season episodes.
 - The create form estimates one episode and the whole season.
 - Deleting a season deletes its episodes; a single season episode can only be deleted if it's the latest, so the story has no gaps.
-- Not yet: moving standalone episodes into a season, reordering, autoplaying the next part.
+- When a part ends, the next one starts after an 8-second countdown (Play now / Cancel), continuing where it was left; if the next part isn't made yet, a note links to the season page.
+- Not yet: moving standalone episodes into a season, reordering.
 
 ## Success
 A learner can set preferences, create a 10-minute German B1 episode, watch it generate, listen with all controls while following the transcript, close the browser, come back through the library and resume where they left off.

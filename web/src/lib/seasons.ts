@@ -26,6 +26,19 @@ export function partStates(season: SeasonDetail): PartState[] {
   })
 }
 
+export type NextPart =
+  | { kind: 'ready'; id: string; title: string; order: number }
+  | { kind: 'not-ready'; title: string; order: number }
+
+/** What follows part `order` when it ends: the next part if it's ready, or a note that it isn't. Null after the last. */
+export function findNextPart(season: SeasonDetail, order: number): NextPart | null {
+  const part = season.parts.find((p) => p.order === order + 1)
+  if (!part) return null
+  return part.episode?.status === 'Ready'
+    ? { kind: 'ready', id: part.episode.id, title: part.episode.title ?? part.title, order: part.order }
+    : { kind: 'not-ready', title: part.title, order: part.order }
+}
+
 /** Poll while the plan or an episode is being made. */
 export const seasonIsBusy = (season: SeasonDetail) =>
   !season.planned || season.episodes.some((e) => isGenerating(e.status))

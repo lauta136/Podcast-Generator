@@ -164,8 +164,10 @@ function ReadyView({ episode, onRated }: { episode: Episode; onRated: (e: Episod
   const title = episode.title ?? episode.topic
 
   useEffect(() => {
-    if (data.data) load({ id: episode.id, title }, data.data[1].positionSec)
-  }, [data.data, episode.id, title, load])
+    if (data.data) {
+      load({ id: episode.id, title, seasonId: episode.seasonId, seasonOrder: episode.seasonOrder }, data.data[1].positionSec)
+    }
+  }, [data.data, episode.id, episode.seasonId, episode.seasonOrder, title, load])
 
   if (data.error) return <div className="page"><ErrorNotice error={data.error} onRetry={data.reload} /></div>
   if (!data.data) return <div className="page"><Loading /></div>
