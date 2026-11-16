@@ -10,7 +10,7 @@ namespace PodcastGenerator.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService auth, TokenService tokens, ICurrentUser currentUser) : ControllerBase
+public class AuthController(IAuthService auth, ISessionService sessions, TokenService tokens, ICurrentUser currentUser) : ControllerBase
 {
     /// <summary>Creates an account and signs it in.</summary>
     [HttpPost("register")]
@@ -19,7 +19,7 @@ public class AuthController(IAuthService auth, TokenService tokens, ICurrentUser
     public async Task<UserDto> Register(CredentialsRequest request, CancellationToken ct)
     {
         var user = await auth.RegisterAsync(request.Email, request.Password, ct);
-        tokens.SignIn(HttpContext, user);
+        tokens.SignIn(HttpContext, user, await sessions.StartAsync(user, ct));
         return UserDto.From(user);
     }
 
@@ -29,29 +29,61 @@ public class AuthController(IAuthService auth, TokenService tokens, ICurrentUser
     public async Task<UserDto> Login(CredentialsRequest request, CancellationToken ct)
     {
         var user = await auth.LoginAsync(request.Email, request.Password, ct);
-        tokens.SignIn(HttpContext, user);
+        tokens.SignIn(HttpContext, user, await sessions.StartAsync(user, ct));
         return UserDto.From(user);
     }
 
-    [HttpPost("logout")]
-    [AllowAnonymous] // signing out with an expired token must still clear the cookie
-    public IActionResult Logout()
+    /// <summary>
+    /// Exchanges the refresh cookie for a new access token and a new refresh token. The web app calls it before
+    /// the 15-minute access token runs out, and after any 401.
+    /// </summary>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public async Task<ActionResult<UserDto>> Refresh(CancellationToken ct)
     {
+        var token = tokens.RefreshTokenFrom(HttpContext);
+        if (token is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var result = await sessions.RefreshAsync(token, ct);
+            tokens.SignIn(HttpContext, result.User, result.Rotated);
+            return UserDto.From(result.User);
+        }
+        catch (SessionEndedException)
+        {
+            tokens.SignOut(HttpContext);
+            return Unauthorized();
+        }
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous] // signing out with an expired access token must still end the sign-in and clear the cookies
+    public async Task<IActionResult> Logout(CancellationToken ct)
+    {
+        await sessions.EndAsync(tokens.RefreshTokenFrom(HttpContext), ct);
         tokens.SignOut(HttpContext);
         return NoContent();
     }
 
-    /// <summary>Changes the password and signs out every other device; this one gets a fresh sign-in.</summary>
+    /// <summary>
+    /// Changes the password and ends every sign-in: other devices are out once their access token expires
+    /// (at most 15 minutes). This device gets a fresh sign-in.
+    /// </summary>
     [HttpPut("password")]
     [EnableRateLimiting(AuthSetup.RateLimitPolicy)]
     public async Task<UserDto> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
     {
         var user = await auth.ChangePasswordAsync(currentUser.UserId, request.CurrentPassword, request.NewPassword, ct);
-        tokens.SignIn(HttpContext, user);
+        await sessions.EndAllAsync(user.Id, ct);
+        tokens.SignIn(HttpContext, user, await sessions.StartAsync(user, ct));
         return UserDto.From(user);
     }
 
-    /// <summary>Deletes the account with all of its data and audio, and signs out.</summary>
+    /// <summary>Deletes the account with all of its data, audio and sign-ins, and signs out.</summary>
     [HttpDelete("account")]
     [EnableRateLimiting(AuthSetup.RateLimitPolicy)]
     public async Task<IActionResult> DeleteAccount(DeleteAccountRequest request, CancellationToken ct)
@@ -68,7 +100,7 @@ public class AuthController(IAuthService auth, TokenService tokens, ICurrentUser
         var user = await auth.FindAsync(currentUser.UserId, ct);
         if (user is null)
         {
-            tokens.SignOut(HttpContext); // the account is gone; the token isn't
+            tokens.SignOut(HttpContext); // the account is gone; the access token isn't yet
             return Unauthorized();
         }
 

@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ListeningProgress> ListeningProgress => Set<ListeningProgress>();
     public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<TtsUsage> TtsUsage => Set<TtsUsage>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

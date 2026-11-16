@@ -15,7 +15,7 @@ public class AuthServiceTests
     private AuthService Service() => new(_users, _hasher, _storage, TimeProvider.System);
 
     [Fact]
-    public async Task Changing_the_password_needs_the_current_one_and_ends_other_sessions()
+    public async Task Changing_the_password_needs_the_current_one()
     {
         var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
 
@@ -25,11 +25,9 @@ public class AuthServiceTests
         var tooShort = await Assert.ThrowsAsync<RequestValidationException>(
             () => Service().ChangePasswordAsync(user.Id, "ein langes passwort", "kurz", CancellationToken.None));
         Assert.Contains("NewPassword", tooShort.Errors.Keys);
-        Assert.Equal(0, user.SessionVersion);
 
         await Service().ChangePasswordAsync(user.Id, "ein langes passwort", "ein neues passwort", CancellationToken.None);
 
-        Assert.Equal(1, user.SessionVersion);
         await Assert.ThrowsAsync<InvalidCredentialsException>(() => Service().LoginAsync("a@example.com", "ein langes passwort", CancellationToken.None));
         Assert.Equal(user.Id, (await Service().LoginAsync("a@example.com", "ein neues passwort", CancellationToken.None)).Id);
     }

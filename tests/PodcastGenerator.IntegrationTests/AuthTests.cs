@@ -43,10 +43,16 @@ public class AuthTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var anna = factory.CreateAnonymousClient();
         var registered = await anna.PostAsJsonAsync("/api/auth/register", new { email = "  Anna@Example.com ", password = "richtig langes passwort" });
         Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
-        var cookie = Assert.Single(registered.Headers.GetValues("Set-Cookie"));
-        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("path=/api", cookie, StringComparison.OrdinalIgnoreCase);
+        var cookies = registered.Headers.GetValues("Set-Cookie").ToList();
+        var access = Assert.Single(cookies, c => c.StartsWith("pg_auth=", StringComparison.Ordinal));
+        var refresh = Assert.Single(cookies, c => c.StartsWith("pg_refresh=", StringComparison.Ordinal));
+        Assert.All(cookies, c =>
+        {
+            Assert.Contains("httponly", c, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("samesite=strict", c, StringComparison.OrdinalIgnoreCase);
+        });
+        Assert.Contains("path=/api;", access + ";", StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/api/auth", refresh, StringComparison.OrdinalIgnoreCase); // the long-lived token only goes to /api/auth
         var annaUser = await registered.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(SeedData.LocalUserId, annaUser.GetProperty("id").GetGuid());
         Assert.Equal("anna@example.com", annaUser.GetProperty("email").GetString());

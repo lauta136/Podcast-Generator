@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using PodcastGenerator.Application.Common;
 using PodcastGenerator.Application.Preferences;
 using PodcastGenerator.Domain.Entities;
 
@@ -22,6 +23,12 @@ public class PreferencesRepository(AppDbContext db) : IPreferencesRepository
         {
             entry.State = EntityState.Detached;
             return false;
+        }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.ForeignKeyViolation })
+        {
+            // No user row: the account was deleted while this access token was still valid.
+            entry.State = EntityState.Detached;
+            throw new AccountGoneException();
         }
     }
 

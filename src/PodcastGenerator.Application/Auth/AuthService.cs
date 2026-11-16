@@ -94,7 +94,6 @@ public class AuthService(IUserRepository users, IPasswordHasher hasher, IAudioSt
         }
 
         user.PasswordHash = hasher.Hash(newPassword);
-        user.SessionVersion++;
         await users.SaveChangesAsync(ct);
         return user;
     }

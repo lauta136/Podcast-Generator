@@ -52,7 +52,7 @@ Everything except sign-in needs an account: register with an email and a passwor
   dotnet user-secrets set "Auth:Jwt:SigningKey" "$(openssl rand -base64 48)" --project src/PodcastGenerator.Api
   ```
 - **Upgrading from the single-user version.** The first account you register takes over the episodes, preferences and listening positions that existed before sign-in. Later accounts start empty.
-- A sign-in lasts 7 days (`Auth:Jwt:LifetimeHours`). Sign-in attempts are limited to 10 per minute per address (`Auth:MaxAttemptsPerMinute`).
+- A sign-in lasts 30 days from its last use (`Auth:Sessions:RefreshTokenDays`), renewed in the background with 15-minute access tokens (`Auth:Jwt:AccessTokenMinutes`). Changing the password signs out other devices within those 15 minutes. Sign-in attempts are limited to 10 per minute per address (`Auth:MaxAttemptsPerMinute`).
 
 ## LLM setup (free tier)
 Episodes are written by any OpenAI-compatible chat API. Pick one; switching is config only.

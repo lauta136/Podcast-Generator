@@ -1,13 +1,10 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Application.Common;
 
 namespace PodcastGenerator.Api.Auth;
@@ -79,28 +76,6 @@ public static partial class AuthSetup
                         return Task.CompletedTask;
                     },
 
-                    // A valid signature isn't enough: the account must still exist and the token must be from the
-                    // current session version (a password change signs out every other device). One key lookup.
-                    OnTokenValidated = async context =>
-                    {
-                        var principal = context.Principal;
-                        if (!Guid.TryParse(principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var userId))
-                        {
-                            context.Fail("Token without a user.");
-                            return;
-                        }
-
-                        // Tokens issued before session versions existed have no claim: they belong to version 0.
-                        var claim = principal?.FindFirst(TokenService.SessionVersionClaim)?.Value;
-                        var version = claim is null ? 0 : int.TryParse(claim, CultureInfo.InvariantCulture, out var v) ? v : -1;
-
-                        var users = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
-                        var user = await users.GetAsync(userId, context.HttpContext.RequestAborted);
-                        if (user is null || user.SessionVersion != version)
-                        {
-                            context.Fail("The account is gone or the session was ended.");
-                        }
-                    },
                 };
             });
 

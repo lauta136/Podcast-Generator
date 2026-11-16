@@ -110,6 +110,11 @@ public sealed class StrictLoginLimitApiFactory : ApiFactory
     protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:MaxAttemptsPerMinute", "3")];
 }
 
+public sealed class NoReuseGraceApiFactory : ApiFactory
+{
+    protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:Sessions:ReuseGraceSeconds", "0")];
+}
+
 public sealed class NoProofreadApiFactory : ApiFactory
 {
     protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Episodes:Proofread", "false")];
