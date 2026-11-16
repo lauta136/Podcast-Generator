@@ -8,6 +8,7 @@ using PodcastGenerator.Application.Preferences;
 using PodcastGenerator.Application.Seasons;
 using PodcastGenerator.Application.Translation;
 using PodcastGenerator.Application.Tts;
+using PodcastGenerator.Application.Vocabulary;
 
 namespace PodcastGenerator.Application;
 
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IPreferencesService, PreferencesService>();
         services.AddScoped<ITranslationService, TranslationService>();
         services.AddScoped<ISeasonService, SeasonService>();
+        services.AddScoped<IVocabularyService, VocabularyService>();
         services.AddScoped<IEpisodeService, EpisodeService>();
         services.AddScoped<IEpisodeGenerator, EpisodeGenerator>();
         services.Configure<TtsOptions>(configuration.GetSection(TtsOptions.SectionName));

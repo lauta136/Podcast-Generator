@@ -16,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<TtsUsage> TtsUsage => Set<TtsUsage>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<VocabularyItem> VocabularyItems => Set<VocabularyItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

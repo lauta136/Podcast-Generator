@@ -152,3 +152,25 @@ public sealed class SeasonArcEpisode
     public string Title { get; set; } = "";
     public string Summary { get; set; } = "";
 }
+
+public sealed class VocabCardResponse
+{
+    public string BaseForm { get; set => field = value ?? ""; } = "";
+    public string Translation { get; set => field = value ?? ""; } = "";
+
+    public IReadOnlyList<string> Validate()
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(BaseForm) || BaseForm.Length > 200)
+        {
+            errors.Add("\"baseForm\" must be 1 to 200 characters");
+        }
+
+        if (string.IsNullOrWhiteSpace(Translation) || Translation.Length > 300)
+        {
+            errors.Add("\"translation\" must be 1 to 300 characters");
+        }
+
+        return errors;
+    }
+}

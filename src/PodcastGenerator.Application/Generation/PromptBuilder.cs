@@ -180,6 +180,19 @@ public static class PromptBuilder
         Temperature: 0.2,
         Interactive: true);
 
+    public static LlmRequest VocabCard(CefrLevel level, string sentence, string expression, string languageName) => new(
+        "vocab-card",
+        $"You write flashcards for learners of German whose native language is {languageName}. Always reply with a single JSON object exactly as requested.",
+        PromptLibrary.Render(PromptLibrary.VocabCardTemplate, new Dictionary<string, string>
+        {
+            ["level"] = level.ToString(),
+            ["language"] = languageName,
+            ["sentence"] = sentence,
+            ["expression"] = expression,
+        }),
+        Temperature: 0.2,
+        Interactive: true);
+
     // Keep umlauts and quotes readable for the model instead of \u escapes.
     private static readonly JsonSerializerOptions ProofreadJson = new()
     {

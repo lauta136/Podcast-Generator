@@ -111,3 +111,23 @@ public class TtsUsageConfiguration : IEntityTypeConfiguration<TtsUsage>
     public void Configure(EntityTypeBuilder<TtsUsage> builder) =>
         builder.HasKey(u => new { u.ModelFamily, u.Month });
 }
+
+public class VocabularyItemConfiguration : IEntityTypeConfiguration<VocabularyItem>
+{
+    public void Configure(EntityTypeBuilder<VocabularyItem> builder)
+    {
+        builder.Property(v => v.Text).HasMaxLength(100);
+        builder.Property(v => v.BaseForm).HasMaxLength(200);
+        builder.Property(v => v.Translation).HasMaxLength(300);
+        builder.Property(v => v.TranslationLanguage).HasMaxLength(8);
+        builder.Property(v => v.Context).HasMaxLength(1000);
+        builder.HasOne<User>().WithMany().HasForeignKey(v => v.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // Words outlive the episode they came from: the sentence is copied into Context.
+        builder.HasOne<Episode>().WithMany().HasForeignKey(v => v.EpisodeId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<TranscriptSegment>().WithMany().HasForeignKey(v => v.SegmentId).OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(v => new { v.UserId, v.DueAt }); // the review queue
+        builder.HasIndex(v => new { v.UserId, v.CreatedAt });
+    }
+}

@@ -579,6 +579,74 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                     b.ToTable("UserPreferences");
                 });
 
+            modelBuilder.Entity("PodcastGenerator.Domain.Entities.VocabularyItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BaseForm")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Box")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Context")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EpisodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("LastReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReviewCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SegmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Translation")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("TranslationLanguage")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EpisodeId");
+
+                    b.HasIndex("SegmentId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "DueAt");
+
+                    b.ToTable("VocabularyItems");
+                });
+
             modelBuilder.Entity("PodcastGenerator.Domain.Entities.AudioSegment", b =>
                 {
                     b.HasOne("PodcastGenerator.Domain.Entities.Episode", null)
@@ -675,6 +743,25 @@ namespace PodcastGenerator.Infrastructure.Persistence.Migrations
                     b.HasOne("PodcastGenerator.Domain.Entities.User", null)
                         .WithOne("Preferences")
                         .HasForeignKey("PodcastGenerator.Domain.Entities.UserPreferences", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PodcastGenerator.Domain.Entities.VocabularyItem", b =>
+                {
+                    b.HasOne("PodcastGenerator.Domain.Entities.Episode", null)
+                        .WithMany()
+                        .HasForeignKey("EpisodeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PodcastGenerator.Domain.Entities.TranscriptSegment", null)
+                        .WithMany()
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PodcastGenerator.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

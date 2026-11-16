@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { DifficultyRating, Episode, EpisodeStatusInfo, Progress, Transcript } from '../api/types'
 import { ErrorNotice, Loading } from '../components/Feedback'
@@ -9,6 +9,7 @@ import { formatRate, isGenerating, ratingLabel, statusLabel, styleLabel } from '
 import { activeSegmentIndex, timeline } from '../lib/transcript'
 import { useApi } from '../lib/useApi'
 import { useTranslations } from '../lib/useTranslations'
+import { SaveWordPopover } from '../components/SaveWordPopover'
 import { SPEEDS, usePlayer } from '../player/usePlayer'
 import './listen.css'
 import './seasons.css'
@@ -160,14 +161,19 @@ function ReadyView({ episode, onRated }: { episode: Episode; onRated: (e: Episod
     [episode.id],
   )
   const player = usePlayer()
-  const { load } = player
+  const { load, seek } = player
   const title = episode.title ?? episode.topic
+  // ?t=42 opens the episode at a sentence (from a vocabulary card) instead of the saved position.
+  const [searchParams] = useSearchParams()
+  const startParam = searchParams.get('t')
+  const startAt = startParam !== null && Number.isFinite(Number(startParam)) ? Math.max(0, Number(startParam)) : null
 
   useEffect(() => {
     if (data.data) {
-      load({ id: episode.id, title, seasonId: episode.seasonId, seasonOrder: episode.seasonOrder }, data.data[1].positionSec)
+      load({ id: episode.id, title, seasonId: episode.seasonId, seasonOrder: episode.seasonOrder }, startAt ?? data.data[1].positionSec)
+      if (startAt !== null) seek(startAt) // already loaded: load() keeps the position, so move it here
     }
-  }, [data.data, episode.id, episode.seasonId, episode.seasonOrder, title, load])
+  }, [data.data, episode.id, episode.seasonId, episode.seasonOrder, title, load, seek, startAt])
 
   if (data.error) return <div className="page"><ErrorNotice error={data.error} onRetry={data.reload} /></div>
   if (!data.data) return <div className="page"><Loading /></div>
@@ -356,6 +362,7 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
   }
 
   const activate = (s: { id: string; startSec: number | null }) => {
+    if (window.getSelection()?.isCollapsed === false) return // selecting a word to save, not clicking
     if (mode === 'translate') translations.toggle(s.id)
     else if (s.startSec !== null) p.seek(s.startSec)
   }
@@ -368,6 +375,7 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
 
   return (
     <article className="read-along" aria-label="Transcript">
+      <SaveWordPopover />
       <div className="read-tools">
         <fieldset className="click-mode">
           <legend>Click a sentence to</legend>
@@ -386,6 +394,7 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
           <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
           Keep the current sentence in view
         </label>
+        <span className="read-tools-tip">Select a word to save it.</span>
         {anyOpen && (
           <button type="button" className="link read-tools-hide" onClick={translations.closeAll}>
             Hide translations
@@ -409,6 +418,7 @@ function ReadAlong({ transcript, episodeId }: { transcript: Transcript; episodeI
                         role="button"
                         tabIndex={0}
                         className="transcript-sentence"
+                        data-segment={s.id}
                         data-active={s.id === activeId || undefined}
                         data-translated={translations.open[s.id] ? true : undefined}
                         aria-current={s.id === activeId ? 'true' : undefined}

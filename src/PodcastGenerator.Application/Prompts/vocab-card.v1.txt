@@ -1,0 +1,10 @@
+A {{level}} learner of German saved an expression while listening to a podcast, to learn it with flashcards.
+
+Sentence: {{sentence}}
+Saved expression: {{expression}}
+
+Reply with this JSON:
+{
+  "baseForm": "the dictionary form in German. Nouns with article and plural (\"der Kaufmann, die Kaufleute\"). Verbs in the infinitive, with a separable prefix joined (\"ankommen\"). Adjectives and adverbs without endings. A phrase in its usual form.",
+  "translation": "what the expression means in this sentence, in {{language}}, in a few words"
+}

@@ -10,11 +10,14 @@ import type {
   Preferences,
   PreferencesUpdate,
   ParagraphTranslation,
+  ReviewResult,
   Progress,
   SeasonDetail,
   SeasonSummary,
   Transcript,
   User,
+  VocabularyItem,
+  VocabularyPage,
   Voice,
 } from './types'
 
@@ -159,6 +162,14 @@ export const api = {
       AbortSignal.timeout(90_000),
     ),
   audioUrl: (id: string) => `/api/episodes/${id}/audio`,
+
+  saveWord: (segmentId: string, text: string) => request<VocabularyItem>('POST', '/api/vocabulary', { segmentId, text }),
+  listVocabulary: (p: { search?: string; page?: number; pageSize?: number }, signal?: AbortSignal) =>
+    request<VocabularyPage>('GET', `/api/vocabulary${query(p)}`, undefined, signal),
+  dueWords: (signal?: AbortSignal) => request<VocabularyItem[]>('GET', '/api/vocabulary/review?take=30', undefined, signal),
+  reviewWord: (id: string, result: ReviewResult) =>
+    request<{ box: number; dueAt: string }>('POST', `/api/vocabulary/${id}/review`, { result }),
+  deleteWord: (id: string) => request<void>('DELETE', `/api/vocabulary/${id}`),
 
   listSeasons: (signal?: AbortSignal) => request<SeasonSummary[]>('GET', '/api/seasons', undefined, signal),
   getSeason: (id: string, signal?: AbortSignal) => request<SeasonDetail>('GET', `/api/seasons/${id}`, undefined, signal),

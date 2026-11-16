@@ -56,6 +56,12 @@ flowchart TD
 - **The order has no gaps.** Only the latest season episode can be deleted on its own (then it can be made again); deleting the season deletes all of its episodes and their audio.
 - Measured on a real run (2026-11-15, three 5-minute B1 parts on the Hanseatic League): the arc came out in a sensible order, and part 2 opened with "Heute hörst du den zweiten Teil unserer Reihe … Im ersten Teil haben wir gelernt …" and ended by teasing part 3.
 
+## Vocabulary
+- **Saving** (`POST /api/vocabulary` with a sentence id and the selected text) checks that the text really occurs in that sentence and is at most 6 words, before any LLM call: the selection goes into a prompt. One interactive LLM request (`vocab-card.v1`, the fast model) returns the dictionary form and the meaning in context. A card whose dictionary form the user already has (case-insensitive) is returned instead of duplicated (200 rather than 201).
+- **Context survives.** The sentence is copied into the card, and the links to the episode and sentence are `SET NULL` on delete, so words outlive their episode. While the episode exists, cards carry the sentence's start time for "Hear it" (`/episodes/{id}?t=…`, rounded up to the next tenth so it lands on the sentence, not the end of the one before).
+- **Scheduling** is Leitner boxes (`ReviewSchedule`): "Got it" moves a card up one box (gaps of 1, 3, 7, 14, 30, 60 days), "Again" sends it to box 0, due in 10 minutes. New cards are due at once. Predictable and enough for a few new words per episode; SM-2-style ease factors would be the next step.
+- **Selecting in the read-along** shows a floating Save button over the selection when it lies within one sentence. A click that ends a selection doesn't seek or translate, and the button keeps the selection alive (mousedown is prevented). The note is kept inside the window near the edges.
+
 ## Sentence translation
 - **One request per paragraph.** Clicking a sentence translates its whole paragraph: the model gets context (pronouns, ellipsis), and the other sentences of the paragraph are then free. Replies must have exactly one non-empty translation per sentence (one repair, like every LLM JSON reply).
 - **Cached per language.** Each sentence stores its translation and the language it's in. Asking again is answered from the database; changing the native language in preferences translates again on the next click.
