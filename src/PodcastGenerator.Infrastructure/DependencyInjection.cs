@@ -8,6 +8,7 @@ using PodcastGenerator.Application.Llm;
 using PodcastGenerator.Application.Preferences;
 using PodcastGenerator.Application.Seasons;
 using PodcastGenerator.Application.Tts;
+using PodcastGenerator.Application.Vocabulary;
 using PodcastGenerator.Infrastructure.Identity;
 using PodcastGenerator.Infrastructure.Jobs;
 using PodcastGenerator.Infrastructure.Llm;
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IPreferencesRepository, PreferencesRepository>();
         services.AddScoped<IEpisodeRepository, EpisodeRepository>();
         services.AddScoped<ISeasonRepository, SeasonRepository>();
+        services.AddScoped<IVocabularyRepository, VocabularyRepository>();
 
         services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
         services.AddSingleton(sp => new RequestRateLimiter(

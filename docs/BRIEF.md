@@ -56,7 +56,13 @@ One learner in the MVP (seeded local user). Registration and login come right af
 - No personal data in prompts.
 
 ## Out of scope for the MVP (keep the model ready)
-Vocabulary lists and flashcards, quizzes, multiple speakers or dialogues, offline mode, other target languages.
+Quizzes, multiple speakers or dialogues, offline mode, other target languages.
+
+## Vocabulary
+- In the read-along, select a word or a short phrase (up to 6 words) and choose **Save**. The app stores its dictionary form (nouns with article and plural, verbs in the infinitive), its meaning in that sentence in the learner's native language, and the sentence itself.
+- **Words** lists the saved words with their sentence, a search, and "Hear it", which opens the episode at that sentence.
+- **Review** shows due cards one by one: the word in its sentence, then its meaning; "Got it" or "Again" (keyboard: Space, 1, 2). Cards follow Leitner boxes: 1, 3, 7, 14, 30 and 60 days; "Again" brings a card back in 10 minutes.
+- Saving the same word again (same dictionary form) keeps one card. Words stay when their episode is deleted.
 
 ## Seasons
 Episodes can be grouped into **seasons** on a big topic, for example "The Spanish Empire".

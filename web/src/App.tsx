@@ -12,8 +12,10 @@ import { ListenPage } from './pages/ListenPage'
 import { NewSeasonPage } from './pages/NewSeasonPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ReviewPage } from './pages/ReviewPage'
 import { SeasonPage } from './pages/SeasonPage'
 import { SeasonsPage } from './pages/SeasonsPage'
+import { VocabularyPage } from './pages/VocabularyPage'
 import { PlayerProvider } from './player/PlayerContext'
 
 export function App() {
@@ -39,6 +41,8 @@ function SignedInApp() {
             <Route path="seasons" element={<SeasonsPage />} />
             <Route path="seasons/new" element={<NewSeasonPage />} />
             <Route path="seasons/:id" element={<SeasonPage />} />
+            <Route path="vocabulary" element={<VocabularyPage />} />
+            <Route path="vocabulary/review" element={<ReviewPage />} />
             <Route path="episodes/:id" element={<ListenPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<NotFoundPage />} />
@@ -60,6 +64,7 @@ function Shell() {
         <nav className="nav" aria-label="Main">
           <NavLink to="/library">Library</NavLink>
           <NavLink to="/seasons">Seasons</NavLink>
+          <NavLink to="/vocabulary">Words</NavLink>
           <NavLink to="/new">New episode</NavLink>
           <NavLink to="/profile">Profile</NavLink>
         </nav>

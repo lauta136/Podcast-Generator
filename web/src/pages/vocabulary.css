@@ -1,0 +1,97 @@
+/* Saved words: the German in the reading serif, the meaning in the UI face, the source sentence below. */
+
+.filters-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.words {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.word {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.word-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.word-main p {
+  margin: 0 0 0.25rem;
+}
+
+.word-base {
+  font-family: var(--serif);
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.word-context,
+.card-context {
+  font-family: var(--serif);
+  color: var(--muted);
+}
+
+/* The saved word inside its sentence: the same highlighter as the read-along. */
+.word-context mark,
+.card-context mark {
+  background: var(--highlight);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 0 0.1em;
+}
+
+/* ---------- Review ---------- */
+
+.card {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  margin: 1rem 0 1.25rem;
+  padding: 1.75rem 1.5rem;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.card p {
+  margin: 0;
+}
+
+.card-word {
+  font-family: var(--serif);
+  font-size: var(--step-3);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card-context {
+  font-size: var(--step-1);
+  line-height: 1.6;
+}
+
+.card-meaning {
+  font-size: var(--step-1);
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  width: 100%;
+}
+
+.card-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.key-hint {
+  opacity: 0.75;
+  font-size: var(--step--1);
+}

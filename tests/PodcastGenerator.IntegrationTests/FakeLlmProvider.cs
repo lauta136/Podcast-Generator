@@ -35,6 +35,7 @@ public sealed partial class FakeLlmProvider : ILlmProvider
             "section" => Section(request),
             "proofread" or "proofread-repair" => Proofread(request),
             "translate" or "translate-repair" => Translate(request),
+            "vocab-card" or "vocab-card-repair" => VocabCard(request),
             _ => throw new NotSupportedException(request.Purpose),
         };
         return Task.FromResult((T)reply);
@@ -128,6 +129,15 @@ public sealed partial class FakeLlmProvider : ILlmProvider
 
     public int ArcCalls(string topic) => Calls(topic, "season-arc");
 
+    public int VocabCardCalls => Calls("all", "vocab-card");
+
+    private VocabCardResponse VocabCard(LlmRequest request)
+    {
+        Count("all", "vocab-card");
+        var expression = ExpressionLine().Match(request.UserPrompt).Groups[1].Value.Trim();
+        return new VocabCardResponse { BaseForm = $"Grundform {expression.ToLowerInvariant()}", Translation = $"EN: {expression}" };
+    }
+
     /// <summary>Thrown by the next translation request, then cleared.</summary>
     public Exception? FailNextTranslation { get; set; }
 
@@ -152,6 +162,9 @@ public sealed partial class FakeLlmProvider : ILlmProvider
     }
 
     private int Count(string topic, string key) => _calls.AddOrUpdate($"{topic}|{key}", 1, (_, n) => n + 1);
+
+    [GeneratedRegex(@"Saved expression: (.+)")]
+    private static partial Regex ExpressionLine();
 
     [GeneratedRegex(@"series of (\d+) episodes")]
     private static partial Regex EpisodeCountLine();

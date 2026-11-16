@@ -196,6 +196,28 @@ export interface SeasonDetail {
   createdAt: string
 }
 
+export interface VocabularyItem {
+  id: string
+  text: string
+  baseForm: string
+  translation: string
+  context: string
+  episodeId: string | null
+  episodeTitle: string | null
+  startSec: number | null
+  box: number
+  dueAt: string
+  createdAt: string
+}
+
+export interface VocabularyPage {
+  items: VocabularyItem[]
+  total: number
+  due: number
+}
+
+export type ReviewResult = 'Again' | 'GotIt'
+
 export interface ParagraphTranslation {
   language: string
   sentences: { id: string; translation: string }[]

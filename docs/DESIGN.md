@@ -13,6 +13,7 @@ These override the sections below where they differ.
 - **One worker loop** with a lease. The lease still protects restarts and expired locks.
 - **Repositories** are query-specific, not generic. Validation uses DataAnnotations (no FluentValidation dependency).
 - **Native language default is English** (configurable), replacing Spanish in §1.
+- **Vocabulary flashcards, added 2026-11-16.** Words saved from the read-along with their dictionary form and meaning in context (one interactive LLM request), reviewed with Leitner boxes. See the brief and ARCHITECTURE.
 - **Seasons, added 2026-11-15** (see the brief). `Season` stores the settings every episode uses (level, style, count, length, speaking speed) and the arc JSON. The arc is planned in episode 1's background job (never in the request); later episodes are created one at a time with `POST /api/seasons/{id}/episodes` once the latest is Ready. Outline prompts (`outline.v2`) get the arc and the summaries of the last 3 earlier episodes (`Episode.Summary`, the joined section recaps); section prompts name the part and tease the next.
 - **TTS auth is an API key** restricted to the Text-to-Speech API (`Tts:Google:ApiKey`), over REST, instead of a service account + SDK: no new dependencies. Agreed 2026-11-09.
 - **TTS budgets default to 900,000 characters per family** (90% of 1M), because Google's pages disagree about WaveNet's free tier (1M vs 4M). Usage is counted in UTF-8 bytes, which is never less than what Google bills.
@@ -94,6 +95,7 @@ Every step is **idempotent and persisted**: a restart or failure never redoes co
 - `GET /api/voices?language=de`
 - `POST /api/episodes/{id}/segments/{segmentId}/translation`
 - `GET/POST /api/seasons`, `GET/DELETE /api/seasons/{id}`, `POST /api/seasons/{id}/episodes`
+- `GET/POST /api/vocabulary`, `GET /api/vocabulary/review`, `POST /api/vocabulary/{id}/review`, `DELETE /api/vocabulary/{id}`
 - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password`, `DELETE /api/auth/account`
 
 ## 7. Frontend (MVP screens)
