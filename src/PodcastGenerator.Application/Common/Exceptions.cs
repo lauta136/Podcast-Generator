@@ -15,6 +15,9 @@ public class RequestValidationException(IReadOnlyDictionary<string, string[]> er
 /// <summary>Sign-in failed. Deliberately says nothing about which part was wrong. Mapped to 401.</summary>
 public class InvalidCredentialsException() : Exception("Email or password is incorrect.");
 
+/// <summary>The signed-in account was deleted (its access token lives a few more minutes). Mapped to 401.</summary>
+public class AccountGoneException() : Exception("This account no longer exists.");
+
 /// <summary>Mapped to 404.</summary>
 public class NotFoundException(string message) : Exception(message);
 

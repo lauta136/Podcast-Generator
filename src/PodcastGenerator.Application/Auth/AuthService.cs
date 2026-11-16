@@ -1,4 +1,5 @@
 using PodcastGenerator.Application.Common;
+using PodcastGenerator.Application.Tts;
 using PodcastGenerator.Domain.Entities;
 
 namespace PodcastGenerator.Application.Auth;
@@ -12,9 +13,15 @@ public interface IAuthService
 
     /// <summary>Null if the account no longer exists (a token can outlive it).</summary>
     Task<User?> FindAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Sets a new password and raises the session version, which signs out every other device.</summary>
+    Task<User> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct);
+
+    /// <summary>Deletes the account with all of its episodes, seasons, listening progress and audio files.</summary>
+    Task DeleteAccountAsync(Guid userId, string password, CancellationToken ct);
 }
 
-public class AuthService(IUserRepository users, IPasswordHasher hasher, TimeProvider clock) : IAuthService
+public class AuthService(IUserRepository users, IPasswordHasher hasher, IAudioStorage storage, TimeProvider clock) : IAuthService
 {
     public const int MinPasswordLength = 8;
     public const int MaxPasswordLength = 128;
@@ -77,6 +84,52 @@ public class AuthService(IUserRepository users, IPasswordHasher hasher, TimeProv
     }
 
     public Task<User?> FindAsync(Guid userId, CancellationToken ct) => users.GetAsync(userId, ct);
+
+    public async Task<User> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct)
+    {
+        var user = await RequireUserWithPasswordAsync(userId, currentPassword, "CurrentPassword", ct);
+        if (newPassword.Length is < MinPasswordLength or > MaxPasswordLength)
+        {
+            throw new RequestValidationException("NewPassword", $"Use {MinPasswordLength} to {MaxPasswordLength} characters.");
+        }
+
+        user.PasswordHash = hasher.Hash(newPassword);
+        await users.SaveChangesAsync(ct);
+        return user;
+    }
+
+    public async Task DeleteAccountAsync(Guid userId, string password, CancellationToken ct)
+    {
+        var user = await RequireUserWithPasswordAsync(userId, password, "Password", ct);
+        if (await users.HasEpisodesInProgressAsync(userId, ct))
+        {
+            throw new ConflictException("An episode is being generated right now. Delete the account once it is ready or has failed.");
+        }
+
+        var keys = await users.AudioKeysAsync(userId, ct);
+        users.Remove(user);
+        await users.SaveChangesAsync(ct);
+
+        foreach (var key in keys)
+        {
+            await storage.DeleteAsync(key, ct); // after the DB delete: a crash leaves orphan files, never half an account
+        }
+    }
+
+    /// <summary>
+    /// Re-checks the password for a sensitive change. A wrong one is a field error (400), not 401: the user is signed
+    /// in, and a 401 would make the web app show the sign-in screen.
+    /// </summary>
+    private async Task<User> RequireUserWithPasswordAsync(Guid userId, string password, string field, CancellationToken ct)
+    {
+        var user = await users.GetAsync(userId, ct) ?? throw new NotFoundException("The account no longer exists.");
+        if (user.PasswordHash is null || hasher.Verify(user.PasswordHash, password) == PasswordCheck.Wrong)
+        {
+            throw new RequestValidationException(field, "The password is incorrect.");
+        }
+
+        return user;
+    }
 
     private static void Validate(string email, string password)
     {

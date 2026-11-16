@@ -75,6 +75,7 @@ public static partial class AuthSetup
 
                         return Task.CompletedTask;
                     },
+
                 };
             });
 

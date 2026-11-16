@@ -64,10 +64,25 @@ export async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message, fieldErrors)
 }
 
-async function request<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  let response: Response
+let refreshing: Promise<boolean> | null = null
+
+/**
+ * Exchanges the refresh cookie for a new 15-minute access token. Concurrent callers share one request, so a burst
+ * of 401s (several panels loading at once) refreshes once instead of using the refresh token several times.
+ */
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= fetch('/api/auth/refresh', { method: 'POST' })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
+
+async function send(method: string, url: string, body: unknown, signal: AbortSignal | undefined): Promise<Response> {
   try {
-    response = await fetch(url, {
+    return await fetch(url, {
       method,
       signal,
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
@@ -77,8 +92,16 @@ async function request<T>(method: string, url: string, body?: unknown, signal?: 
     if (e instanceof DOMException && e.name === 'AbortError') throw e
     throw new ApiError(0, 'Cannot reach the server. Check that the API is running.')
   }
+}
 
-  if (response.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
+async function request<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  let response = await send(method, url, body, signal)
+
+  // The access token lasts 15 minutes: renew it once and retry. Sign-in requests answer 401 for other reasons.
+  if (response.status === 401 && !url.startsWith('/api/auth/')) {
+    response = (await refreshSession()) ? await send(method, url, body, signal) : response
+    if (response.status === 401) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
+  }
   if (!response.ok) throw await toApiError(response)
   if (response.status === 204 || response.status === 202) {
     const text = await response.text()
@@ -99,6 +122,9 @@ export const api = {
   register: (email: string, password: string) => request<User>('POST', '/api/auth/register', { email, password }),
   login: (email: string, password: string) => request<User>('POST', '/api/auth/login', { email, password }),
   logout: () => request<void>('POST', '/api/auth/logout'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<User>('PUT', '/api/auth/password', { currentPassword, newPassword }),
+  deleteAccount: (password: string) => request<void>('DELETE', '/api/auth/account', { password }),
 
   getPreferences: (signal?: AbortSignal) => request<Preferences>('GET', '/api/preferences', undefined, signal),
   savePreferences: (p: PreferencesUpdate) => request<Preferences>('PUT', '/api/preferences', p),

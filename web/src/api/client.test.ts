@@ -37,3 +37,23 @@ describe('toApiError for sign-in', () => {
     expect(error.message).toMatch(/Too many attempts/)
   })
 })
+
+describe('refreshSession', () => {
+  it('shares one refresh request between concurrent callers', async () => {
+    const calls: string[] = []
+    const original = globalThis.fetch
+    globalThis.fetch = (async (url: string) => {
+      calls.push(url)
+      await new Promise((r) => setTimeout(r, 10))
+      return new Response(null, { status: 200 })
+    }) as typeof fetch
+    try {
+      const { refreshSession } = await import('./client')
+      const results = await Promise.all([refreshSession(), refreshSession(), refreshSession()])
+      expect(results).toEqual([true, true, true])
+      expect(calls).toEqual(['/api/auth/refresh'])
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+})

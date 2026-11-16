@@ -12,8 +12,14 @@ public class JwtOptions
     public string Issuer { get; set; } = "podcast-generator";
     public string Audience { get; set; } = "podcast-generator-web";
 
-    /// <summary>How long a sign-in lasts.</summary>
-    public int LifetimeHours { get; set; } = 168;
+    /// <summary>
+    /// Life of an access token. It is checked by signature only, so this is also the longest a signed-out device
+    /// (password change, deleted account) can keep going.
+    /// </summary>
+    public int AccessTokenMinutes { get; set; } = 15;
 
     public string CookieName { get; set; } = "pg_auth";
+
+    /// <summary>Sent only to /api/auth, so the long-lived token isn't attached to every request.</summary>
+    public string RefreshCookieName { get; set; } = "pg_refresh";
 }

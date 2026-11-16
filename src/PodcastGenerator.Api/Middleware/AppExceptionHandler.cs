@@ -17,6 +17,12 @@ public class AppExceptionHandler(IProblemDetailsService problemDetails) : IExcep
             {
                 Status = StatusCodes.Status400BadRequest,
             },
+            AccountGoneException e => new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "Signed out",
+                Detail = e.Message,
+            },
             InvalidCredentialsException e => new ProblemDetails
             {
                 Status = StatusCodes.Status401Unauthorized,

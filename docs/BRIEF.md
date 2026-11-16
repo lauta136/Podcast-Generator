@@ -15,6 +15,7 @@ One learner in the MVP (seeded local user). Registration and login come right af
 
 ### Accounts
 - Register and sign in with an email and a password. Episodes, preferences and listening positions belong to the account.
+- On the Profile page: change the password (signs out every other device) and delete the account with all of its episodes, seasons and audio, confirmed with the password.
 
 ### Preferences (Profile page)
 - Native language (default English). Target language: German only for now.

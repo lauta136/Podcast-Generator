@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api } from '../api/client'
 import { LEVELS, type CefrLevel, type Preferences, type VoiceFamily } from '../api/types'
+import { useAuth } from '../auth/useAuth'
 import { ErrorNotice, Loading } from '../components/Feedback'
 import { familyLabel, formatRate } from '../lib/labels'
 import { useApi } from '../lib/useApi'
@@ -22,6 +23,7 @@ export function ProfilePage() {
       {prefs.loading && !prefs.data && <Loading />}
       {prefs.data && <PreferencesForm initial={prefs.data} onSaved={prefs.setData} />}
       <BudgetPanel />
+      <AccountPanel />
     </div>
   )
 }
@@ -246,5 +248,163 @@ function BudgetPanel() {
         )
       })}
     </section>
+  )
+}
+
+function AccountPanel() {
+  const { user } = useAuth()
+  return (
+    <section className="account-panel" aria-labelledby="account-title">
+      <h2 id="account-title">Account</h2>
+      <p className="hint">Signed in as {user.email ?? user.displayName}.</p>
+      <ChangePasswordForm />
+      <DeleteAccountForm />
+    </section>
+  )
+}
+
+function ChangePasswordForm() {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ ok: true } | { ok: false; error: Error }>()
+  const fieldError = (name: string) =>
+    result && !result.ok && result.error instanceof ApiError ? result.error.fieldErrors[name]?.[0] : undefined
+  const formError = result && !result.ok && !fieldError('currentPassword') && !fieldError('newPassword') ? result.error : undefined
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api.changePassword(current, next)
+      setCurrent('')
+      setNext('')
+      setResult({ ok: true })
+    } catch (error) {
+      setResult({ ok: false, error: error as Error })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="account-form">
+      <h3>Change password</h3>
+      <div className="field">
+        <label htmlFor="current-password">Current password</label>
+        <input
+          id="current-password"
+          className="input"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => {
+            setCurrent(e.target.value)
+            setResult(undefined)
+          }}
+        />
+        {fieldError('currentPassword') && <p className="field-error">{fieldError('currentPassword')}</p>}
+      </div>
+      <div className="field">
+        <label htmlFor="new-password">New password</label>
+        <input
+          id="new-password"
+          className="input"
+          type="password"
+          autoComplete="new-password"
+          value={next}
+          onChange={(e) => {
+            setNext(e.target.value)
+            setResult(undefined)
+          }}
+          aria-describedby="new-password-hint"
+        />
+        <p id="new-password-hint" className="hint">
+          8 characters or more. Changing it signs you out on every other device.
+        </p>
+        {fieldError('newPassword') && <p className="field-error">{fieldError('newPassword')}</p>}
+      </div>
+      {result?.ok && (
+        <div className="notice notice-ok" role="status">
+          <p>Password changed. Other devices are signed out.</p>
+        </div>
+      )}
+      {formError && <ErrorNotice error={formError} />}
+      <button type="submit" className="button" disabled={busy || current === '' || next === ''}>
+        {busy ? 'Changing…' : 'Change password'}
+      </button>
+    </form>
+  )
+}
+
+function DeleteAccountForm() {
+  const { signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<Error>()
+  const fieldError = error instanceof ApiError ? error.fieldErrors.password?.[0] : undefined
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api.deleteAccount(password)
+      await signOut() // back to the sign-in screen; the player goes with the signed-in app
+    } catch (err) {
+      setError(err as Error)
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="account-form">
+        <h3>Delete account</h3>
+        <p className="hint">Deletes your episodes, seasons, listening positions and all audio. This can't be undone.</p>
+        <button type="button" className="button button-quiet button-danger" onClick={() => setOpen(true)}>
+          Delete account…
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="account-form account-danger">
+      <h3>Delete account</h3>
+      <p>Everything in this account will be deleted for good: episodes, seasons, listening positions and audio files.</p>
+      <div className="field">
+        <label htmlFor="delete-password">Enter your password to confirm</label>
+        <input
+          id="delete-password"
+          className="input"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value)
+            setError(undefined)
+          }}
+        />
+        {fieldError && <p className="field-error">{fieldError}</p>}
+      </div>
+      {error && !fieldError && <ErrorNotice error={error} />}
+      <div className="row">
+        <button type="submit" className="button button-danger-solid" disabled={busy || password === ''}>
+          {busy ? 'Deleting…' : 'Delete my account'}
+        </button>
+        <button
+          type="button"
+          className="button button-quiet"
+          onClick={() => {
+            setOpen(false)
+            setPassword('')
+            setError(undefined)
+          }}
+        >
+          Keep my account
+        </button>
+      </div>
+    </form>
   )
 }

@@ -10,7 +10,69 @@ public class AuthServiceTests
     private readonly FakeUsers _users = new();
     private readonly CountingHasher _hasher = new();
 
-    private AuthService Service() => new(_users, _hasher, TimeProvider.System);
+    private readonly FakeStorage _storage = new();
+
+    private AuthService Service() => new(_users, _hasher, _storage, TimeProvider.System);
+
+    [Fact]
+    public async Task Changing_the_password_needs_the_current_one()
+    {
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+
+        var wrong = await Assert.ThrowsAsync<RequestValidationException>(
+            () => Service().ChangePasswordAsync(user.Id, "falsch", "ein neues passwort", CancellationToken.None));
+        Assert.Contains("CurrentPassword", wrong.Errors.Keys);
+        var tooShort = await Assert.ThrowsAsync<RequestValidationException>(
+            () => Service().ChangePasswordAsync(user.Id, "ein langes passwort", "kurz", CancellationToken.None));
+        Assert.Contains("NewPassword", tooShort.Errors.Keys);
+
+        await Service().ChangePasswordAsync(user.Id, "ein langes passwort", "ein neues passwort", CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => Service().LoginAsync("a@example.com", "ein langes passwort", CancellationToken.None));
+        Assert.Equal(user.Id, (await Service().LoginAsync("a@example.com", "ein neues passwort", CancellationToken.None)).Id);
+    }
+
+    [Fact]
+    public async Task Deleting_the_account_removes_it_and_its_audio_files()
+    {
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        _users.Audio = ["episodes/1/episode.mp3", "episodes/1/chunks/0000.mp3"];
+
+        await Assert.ThrowsAsync<RequestValidationException>(() => Service().DeleteAccountAsync(user.Id, "falsch", CancellationToken.None));
+        Assert.NotNull(await _users.GetAsync(user.Id, CancellationToken.None));
+
+        await Service().DeleteAccountAsync(user.Id, "ein langes passwort", CancellationToken.None);
+
+        Assert.Null(await _users.GetAsync(user.Id, CancellationToken.None));
+        Assert.Equal(["episodes/1/episode.mp3", "episodes/1/chunks/0000.mp3"], _storage.Deleted);
+    }
+
+    [Fact]
+    public async Task The_account_cannot_be_deleted_while_an_episode_is_being_made()
+    {
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        _users.Generating = true;
+
+        await Assert.ThrowsAsync<ConflictException>(() => Service().DeleteAccountAsync(user.Id, "ein langes passwort", CancellationToken.None));
+        Assert.NotNull(await _users.GetAsync(user.Id, CancellationToken.None));
+    }
+
+    private sealed class FakeStorage : PodcastGenerator.Application.Tts.IAudioStorage
+    {
+        public List<string> Deleted { get; } = [];
+
+        public Task<string> SaveAsync(string key, Stream audio, string contentType, CancellationToken ct) => Task.FromResult(key);
+
+        public Task<Stream> OpenReadAsync(string key, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<bool> ExistsAsync(string key, CancellationToken ct) => Task.FromResult(false);
+
+        public Task DeleteAsync(string key, CancellationToken ct)
+        {
+            Deleted.Add(key);
+            return Task.CompletedTask;
+        }
+    }
 
     [Fact]
     public async Task Register_stores_a_normalized_email_and_a_hash_never_the_password()
@@ -117,6 +179,16 @@ public class AuthServiceTests
         public User? LocalUser { get; set; }
 
         public int Saves { get; private set; }
+
+        public IReadOnlyList<string> Audio { get; set; } = [];
+
+        public bool Generating { get; set; }
+
+        public Task<IReadOnlyList<string>> AudioKeysAsync(Guid userId, CancellationToken ct) => Task.FromResult(Audio);
+
+        public Task<bool> HasEpisodesInProgressAsync(Guid userId, CancellationToken ct) => Task.FromResult(Generating);
+
+        public void Remove(User user) => _users.Remove(user);
 
         public Task<User?> GetAsync(Guid userId, CancellationToken ct) => Task.FromResult(_users.SingleOrDefault(u => u.Id == userId));
 
