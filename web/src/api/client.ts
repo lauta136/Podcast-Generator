@@ -122,7 +122,9 @@ const query = (params: Record<string, string | number | undefined | null>) => {
 
 export const api = {
   me: (signal?: AbortSignal) => request<User>('GET', '/api/auth/me', undefined, signal),
-  register: (email: string, password: string) => request<User>('POST', '/api/auth/register', { email, password }),
+  registration: (signal?: AbortSignal) => request<{ inviteRequired: boolean }>('GET', '/api/auth/registration', undefined, signal),
+  register: (email: string, password: string, inviteCode?: string) =>
+    request<User>('POST', '/api/auth/register', { email, password, inviteCode: inviteCode || undefined }),
   login: (email: string, password: string) => request<User>('POST', '/api/auth/login', { email, password }),
   logout: () => request<void>('POST', '/api/auth/logout'),
   changePassword: (currentPassword: string, newPassword: string) =>

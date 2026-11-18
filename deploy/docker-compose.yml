@@ -1,0 +1,70 @@
+# The whole app on one server: PostgreSQL, the API (with its worker) and Caddy in front.
+# Run from this folder, next to a .env file made from .env.example:
+#   docker compose pull      # or: docker compose build   (to build on the server instead)
+#   docker compose up -d
+# Only Caddy has public ports. The database and the API are reachable inside this Compose network alone.
+name: podcast
+
+x-api-image: &api-image ${API_IMAGE:-ghcr.io/lauta136/podcast-generator-api:latest}
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: podcast
+      POSTGRES_DB: podcast
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast"]
+      interval: 5s
+      retries: 20
+
+  # Deploy step: brings the database schema up to date, then exits. The API starts only if it succeeded.
+  migrate:
+    image: *api-image
+    build: { context: .., dockerfile: deploy/api.Dockerfile }
+    command: ["--migrate-only"]
+    environment: &api-env
+      ConnectionStrings__Default: Host=db;Database=podcast;Username=podcast;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      Auth__Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      Auth__Registration__InviteCode: ${INVITE_CODE:-}
+      Llm__ApiKey: ${LLM_API_KEY:?Set LLM_API_KEY in .env}
+      Tts__Google__ApiKey: ${TTS_API_KEY:?Set TTS_API_KEY in .env}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    image: *api-image
+    build: { context: .., dockerfile: deploy/api.Dockerfile }
+    restart: unless-stopped
+    environment: *api-env
+    volumes:
+      - audio:/data/audio
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/lauta136/podcast-generator-web:latest}
+    build: { context: .., dockerfile: deploy/web.Dockerfile }
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS in .env}
+    volumes:
+      - caddy_data:/data # the HTTPS certificate: keep it, or Caddy asks Let's Encrypt again on every restart
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  audio:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/audio-storage/
+**/*.mp3
+**/.env
+.git/
+.github/
+.claude/
+tests/
+docs/
+deploy/backups/

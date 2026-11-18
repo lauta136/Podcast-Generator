@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
 using PodcastGenerator.Application.Common;
 using PodcastGenerator.Application.Tts;
 using PodcastGenerator.Domain.Entities;
@@ -6,7 +9,8 @@ namespace PodcastGenerator.Application.Auth;
 
 public interface IAuthService
 {
-    Task<User> RegisterAsync(string email, string password, CancellationToken ct);
+    /// <summary>Needs the invite code when one is configured (<see cref="RegistrationOptions"/>).</summary>
+    Task<User> RegisterAsync(string email, string password, string? inviteCode, CancellationToken ct);
 
     /// <summary>Throws <see cref="InvalidCredentialsException"/> for an unknown email and for a wrong password alike.</summary>
     Task<User> LoginAsync(string email, string password, CancellationToken ct);
@@ -21,7 +25,12 @@ public interface IAuthService
     Task DeleteAccountAsync(Guid userId, string password, CancellationToken ct);
 }
 
-public class AuthService(IUserRepository users, IPasswordHasher hasher, IAudioStorage storage, TimeProvider clock) : IAuthService
+public class AuthService(
+    IUserRepository users,
+    IPasswordHasher hasher,
+    IAudioStorage storage,
+    IOptions<RegistrationOptions> registration,
+    TimeProvider clock) : IAuthService
 {
     public const int MinPasswordLength = 8;
     public const int MaxPasswordLength = 128;
@@ -32,10 +41,11 @@ public class AuthService(IUserRepository users, IPasswordHasher hasher, IAudioSt
 
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
-    public async Task<User> RegisterAsync(string email, string password, CancellationToken ct)
+    public async Task<User> RegisterAsync(string email, string password, string? inviteCode, CancellationToken ct)
     {
         var normalized = NormalizeEmail(email);
         Validate(normalized, password);
+        CheckInvite(inviteCode);
 
         var hash = hasher.Hash(password);
         var displayName = normalized[..normalized.IndexOf('@', StringComparison.Ordinal)];
@@ -129,6 +139,22 @@ public class AuthService(IUserRepository users, IPasswordHasher hasher, IAudioSt
         }
 
         return user;
+    }
+
+    private void CheckInvite(string? inviteCode)
+    {
+        var expected = registration.Value.InviteCode.Trim();
+        if (expected.Length == 0)
+        {
+            return;
+        }
+
+        // Fixed-time comparison, so response timing doesn't reveal how much of a guess was right.
+        var given = Encoding.UTF8.GetBytes((inviteCode ?? "").Trim());
+        if (!CryptographicOperations.FixedTimeEquals(given, Encoding.UTF8.GetBytes(expected)))
+        {
+            throw new RequestValidationException("InviteCode", "This invite code isn't valid. Ask the person who invited you for the current one.");
+        }
     }
 
     private static void Validate(string email, string password)

@@ -110,6 +110,21 @@ public sealed class StrictLoginLimitApiFactory : ApiFactory
     protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:MaxAttemptsPerMinute", "3")];
 }
 
+/// <summary>Strict limit behind a proxy: the limit must apply per real client, not to the proxy as a whole.</summary>
+public sealed class BehindProxyApiFactory : ApiFactory
+{
+    protected override IEnumerable<(string Key, string Value)> ExtraSettings =>
+        [("Auth:MaxAttemptsPerMinute", "3"), ("Proxy:TrustForwardedHeaders", "true")];
+}
+
+/// <summary>Invite-only sign-up, as on the public server.</summary>
+public sealed class InviteOnlyApiFactory : ApiFactory
+{
+    public const string Code = "willkommen-2026";
+
+    protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:Registration:InviteCode", Code)];
+}
+
 public sealed class NoReuseGraceApiFactory : ApiFactory
 {
     protected override IEnumerable<(string Key, string Value)> ExtraSettings => [("Auth:Sessions:ReuseGraceSeconds", "0")];
