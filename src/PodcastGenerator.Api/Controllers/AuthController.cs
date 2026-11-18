@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using PodcastGenerator.Api.Auth;
 using PodcastGenerator.Api.Dtos;
 using PodcastGenerator.Application.Auth;
@@ -10,15 +11,25 @@ namespace PodcastGenerator.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService auth, ISessionService sessions, TokenService tokens, ICurrentUser currentUser) : ControllerBase
+public class AuthController(
+    IAuthService auth,
+    ISessionService sessions,
+    TokenService tokens,
+    ICurrentUser currentUser,
+    IOptions<RegistrationOptions> registration) : ControllerBase
 {
+    /// <summary>Whether sign-up needs an invite code, so the form can ask for one. Never reveals the code.</summary>
+    [HttpGet("registration")]
+    [AllowAnonymous]
+    public RegistrationDto Registration() => new(registration.Value.InviteRequired);
+
     /// <summary>Creates an account and signs it in.</summary>
     [HttpPost("register")]
     [AllowAnonymous]
     [EnableRateLimiting(AuthSetup.RateLimitPolicy)]
-    public async Task<UserDto> Register(CredentialsRequest request, CancellationToken ct)
+    public async Task<UserDto> Register(RegisterRequest request, CancellationToken ct)
     {
-        var user = await auth.RegisterAsync(request.Email, request.Password, ct);
+        var user = await auth.RegisterAsync(request.Email, request.Password, request.InviteCode, ct);
         tokens.SignIn(HttpContext, user, await sessions.StartAsync(user, ct));
         return UserDto.From(user);
     }

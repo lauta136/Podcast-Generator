@@ -1,0 +1,31 @@
+# SITE_ADDRESS is the public hostname, e.g. podcast.example.com or 203-0-113-7.sslip.io. Caddy gets and renews
+# its HTTPS certificate on its own. Set it to ":80" to try the stack on your own machine without HTTPS.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# The API. Caddy adds X-Forwarded-For (the real client address) and X-Forwarded-Proto (https),
+	# and drops any a client sent itself, so the API can trust them.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	# The web app: real files when they exist, otherwise index.html so React Router handles the path.
+	handle {
+		root * /srv
+		# Built files have a content hash in their name, so they can be cached for good; the page itself can't.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@page not path /assets/*
+		header @page Cache-Control no-cache
+		try_files {path} /index.html
+		file_server
+	}
+}

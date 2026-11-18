@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using PodcastGenerator.Application.Auth;
 using PodcastGenerator.Application.Common;
 using PodcastGenerator.Domain.Entities;
@@ -12,12 +13,14 @@ public class AuthServiceTests
 
     private readonly FakeStorage _storage = new();
 
-    private AuthService Service() => new(_users, _hasher, _storage, TimeProvider.System);
+    private RegistrationOptions _registration = new();
+
+    private AuthService Service() => new(_users, _hasher, _storage, Options.Create(_registration), TimeProvider.System);
 
     [Fact]
     public async Task Changing_the_password_needs_the_current_one()
     {
-        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
 
         var wrong = await Assert.ThrowsAsync<RequestValidationException>(
             () => Service().ChangePasswordAsync(user.Id, "falsch", "ein neues passwort", CancellationToken.None));
@@ -35,7 +38,7 @@ public class AuthServiceTests
     [Fact]
     public async Task Deleting_the_account_removes_it_and_its_audio_files()
     {
-        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
         _users.Audio = ["episodes/1/episode.mp3", "episodes/1/chunks/0000.mp3"];
 
         await Assert.ThrowsAsync<RequestValidationException>(() => Service().DeleteAccountAsync(user.Id, "falsch", CancellationToken.None));
@@ -50,7 +53,7 @@ public class AuthServiceTests
     [Fact]
     public async Task The_account_cannot_be_deleted_while_an_episode_is_being_made()
     {
-        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
         _users.Generating = true;
 
         await Assert.ThrowsAsync<ConflictException>(() => Service().DeleteAccountAsync(user.Id, "ein langes passwort", CancellationToken.None));
@@ -77,7 +80,7 @@ public class AuthServiceTests
     [Fact]
     public async Task Register_stores_a_normalized_email_and_a_hash_never_the_password()
     {
-        var user = await Service().RegisterAsync("  Lena@Example.COM ", "ein langes passwort", CancellationToken.None);
+        var user = await Service().RegisterAsync("  Lena@Example.COM ", "ein langes passwort", null, CancellationToken.None);
 
         Assert.Equal("lena@example.com", user.Email);
         Assert.Equal("lena", user.DisplayName);
@@ -90,19 +93,44 @@ public class AuthServiceTests
     {
         _users.LocalUser = new User { Id = Guid.NewGuid(), DisplayName = "Local learner" };
 
-        var first = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
-        var second = await Service().RegisterAsync("b@example.com", "ein langes passwort", CancellationToken.None);
+        var first = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
+        var second = await Service().RegisterAsync("b@example.com", "ein langes passwort", null, CancellationToken.None);
 
         Assert.Equal(_users.LocalUser.Id, first.Id);
         Assert.NotEqual(first.Id, second.Id);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("falsch")]
+    [InlineData("hallo-welt-2")]
+    public async Task An_invite_only_server_refuses_sign_up_without_the_right_code(string? code)
+    {
+        _registration = new RegistrationOptions { InviteCode = "hallo-welt" };
+
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => Service().RegisterAsync("a@example.com", "ein langes passwort", code, CancellationToken.None));
+
+        Assert.Contains("InviteCode", ex.Errors.Keys);
+        Assert.Null(await _users.GetByEmailAsync("a@example.com", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_right_invite_code_creates_the_account_with_stray_spaces_ignored()
+    {
+        _registration = new RegistrationOptions { InviteCode = "hallo-welt" };
+
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", " hallo-welt ", CancellationToken.None);
+
+        Assert.Equal("a@example.com", user.Email);
+    }
+
     [Fact]
     public async Task Register_refuses_an_email_that_is_taken()
     {
-        await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
 
-        await Assert.ThrowsAsync<ConflictException>(() => Service().RegisterAsync("A@example.com", "noch ein passwort", CancellationToken.None));
+        await Assert.ThrowsAsync<ConflictException>(() => Service().RegisterAsync("A@example.com", "noch ein passwort", null, CancellationToken.None));
     }
 
     [Theory]
@@ -113,14 +141,14 @@ public class AuthServiceTests
     [InlineData("a@example.com", "1234567", "Password")]
     public async Task Register_validates_input(string email, string password, string field)
     {
-        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => Service().RegisterAsync(email, password, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => Service().RegisterAsync(email, password, null, CancellationToken.None));
         Assert.Contains(field, ex.Errors.Keys);
     }
 
     [Fact]
     public async Task Login_fails_the_same_way_for_an_unknown_email_and_a_wrong_password()
     {
-        await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
         var service = Service();
         _hasher.Verifications = 0;
 
@@ -134,7 +162,7 @@ public class AuthServiceTests
     [Fact]
     public async Task Login_accepts_the_right_password_in_any_email_spelling()
     {
-        var registered = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        var registered = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
 
         var user = await Service().LoginAsync(" A@Example.com", "ein langes passwort", CancellationToken.None);
 
@@ -144,7 +172,7 @@ public class AuthServiceTests
     [Fact]
     public async Task Login_replaces_a_hash_made_with_outdated_settings()
     {
-        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", CancellationToken.None);
+        var user = await Service().RegisterAsync("a@example.com", "ein langes passwort", null, CancellationToken.None);
         var oldHash = user.PasswordHash;
         _hasher.ReportOutdated = true;
 

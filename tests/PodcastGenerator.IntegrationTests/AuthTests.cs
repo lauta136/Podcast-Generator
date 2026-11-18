@@ -150,3 +150,83 @@ public class LoginRateLimitTests(StrictLoginLimitApiFactory factory) : IClassFix
         Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], statuses);
     }
 }
+
+public class BehindProxyTests(BehindProxyApiFactory factory) : IClassFixture<BehindProxyApiFactory>
+{
+    [Fact]
+    public async Task The_sign_in_limit_counts_each_client_behind_the_proxy_separately()
+    {
+        async Task<HttpStatusCode> Attempt(string clientAddress, int i)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+            {
+                Content = JsonContent.Create(new { email = "x@example.com", password = "geraten" + i }),
+            };
+            request.Headers.Add("X-Forwarded-For", clientAddress);
+            return (await factory.CreateAnonymousClient().SendAsync(request)).StatusCode;
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, await Attempt("203.0.113.7", i));
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, await Attempt("203.0.113.7", 3));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Attempt("198.51.100.20", 0)); // someone else isn't locked out
+
+        // A client can't dodge the limit by adding its own address in front: only the proxy's entry counts.
+        Assert.Equal(HttpStatusCode.TooManyRequests, await Attempt("10.9.9.9, 203.0.113.7", 4));
+    }
+
+    [Fact]
+    public async Task Cookies_are_secure_when_the_proxy_received_https()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/register")
+        {
+            Content = JsonContent.Create(new { email = "proxy@example.com", password = "ein langes passwort" }),
+        };
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        request.Headers.Add("X-Forwarded-For", "192.0.2.44");
+
+        var response = await factory.CreateAnonymousClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.All(response.Headers.GetValues("Set-Cookie"), c => Assert.Contains("secure", c, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+public class InviteOnlyTests(InviteOnlyApiFactory factory) : IClassFixture<InviteOnlyApiFactory>
+{
+    [Fact]
+    public async Task Sign_up_needs_the_invite_code_and_the_form_can_ask_for_it()
+    {
+        var client = factory.CreateAnonymousClient();
+
+        var registration = await client.GetFromJsonAsync<JsonElement>("/api/auth/registration");
+        Assert.True(registration.GetProperty("inviteRequired").GetBoolean());
+        Assert.DoesNotContain(InviteOnlyApiFactory.Code, registration.GetRawText(), StringComparison.Ordinal);
+
+        var refused = await client.PostAsJsonAsync("/api/auth/register", new { email = "gast@example.com", password = "ein langes passwort" });
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("inviteCode", await refused.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Set-Cookie", refused.Headers.Select(h => h.Key));
+
+        var wrong = await client.PostAsJsonAsync("/api/auth/register", new { email = "gast@example.com", password = "ein langes passwort", inviteCode = "geraten" });
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+
+        var invited = await client.PostAsJsonAsync("/api/auth/register", new { email = "gast@example.com", password = "ein langes passwort", inviteCode = InviteOnlyApiFactory.Code });
+        Assert.Equal(HttpStatusCode.OK, invited.StatusCode);
+        Assert.Equal("gast@example.com", (await client.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("email").GetString());
+    }
+
+}
+
+public class OpenSignUpTests(ApiFactory factory) : IClassFixture<ApiFactory>
+{
+    [Fact]
+    public async Task Without_a_code_configured_the_form_doesnt_ask_for_one()
+    {
+        var registration = await factory.CreateAnonymousClient().GetFromJsonAsync<JsonElement>("/api/auth/registration");
+        Assert.False(registration.GetProperty("inviteRequired").GetBoolean());
+    }
+}

@@ -5,6 +5,7 @@ AI-generated listening podcasts for language immersion. Pick a topic, a CEFR lev
 - Product behavior: [docs/BRIEF.md](docs/BRIEF.md)
 - Technical decisions: [docs/DESIGN.md](docs/DESIGN.md)
 - How the code is organized: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Putting it on a server: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Stack
 ASP.NET Core (.NET 10) · EF Core + PostgreSQL · React + TypeScript + Vite · Gemini or Groq (LLM, free tier) · Google Cloud Text-to-Speech.
@@ -17,6 +18,7 @@ src/PodcastGenerator.Domain          Entities, enums
 src/PodcastGenerator.Infrastructure  EF Core, repositories, providers, storage
 tests/                               Unit and integration tests (fake providers)
 web/                                 React frontend
+deploy/                              Server setup: Dockerfiles, Compose, Caddy, backups
 ```
 
 ## Prerequisites
@@ -44,6 +46,7 @@ Secrets are never committed. Locally they go in `dotnet user-secrets` for the AP
 | `Llm:ApiKey` | Gemini or Groq API key |
 | `Tts:Google:ApiKey` | Google Cloud API key restricted to the Text-to-Speech API |
 | `Auth:Jwt:SigningKey` | Random text (32+ bytes) that signs sign-in tokens |
+| `Auth:Registration:InviteCode` | Optional. When set, new accounts need this code |
 
 ## Accounts
 Everything except sign-in needs an account: register with an email and a password on the first screen.
@@ -53,6 +56,7 @@ Everything except sign-in needs an account: register with an email and a passwor
   ```
 - **Upgrading from the single-user version.** The first account you register takes over the episodes, preferences and listening positions that existed before sign-in. Later accounts start empty.
 - A sign-in lasts 30 days from its last use (`Auth:Sessions:RefreshTokenDays`), renewed in the background with 15-minute access tokens (`Auth:Jwt:AccessTokenMinutes`). Changing the password signs out other devices within those 15 minutes. Sign-in attempts are limited to 10 per minute per address (`Auth:MaxAttemptsPerMinute`).
+- **Invite-only.** Set `Auth:Registration:InviteCode` and the sign-up form asks for that code. Locally it's unset, so anyone can register; the server sets it.
 
 ## LLM setup (free tier)
 Episodes are written by any OpenAI-compatible chat API. Pick one; switching is config only.

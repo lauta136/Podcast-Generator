@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api } from '../api/client'
 import type { User } from '../api/types'
+import { useApi } from '../lib/useApi'
 import './signin.css'
 
 type Mode = 'sign-in' | 'register'
@@ -9,19 +10,24 @@ export function SignInPage({ onSignedIn }: { onSignedIn: (user: User) => void })
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const registration = useApi((signal) => api.registration(signal), [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<Error>()
 
   const registering = mode === 'register'
   const fieldError = (name: string) => (error instanceof ApiError ? error.fieldErrors[name]?.[0] : undefined)
-  const formError = error && !fieldError('email') && !fieldError('password') ? error.message : undefined
+  const formError =
+    error && !fieldError('email') && !fieldError('password') && !fieldError('inviteCode') ? error.message : undefined
+  // Shown when the server says sign-up is invite-only, or refused a sign-up for a missing code.
+  const askInvite = registering && (registration.data?.inviteRequired === true || fieldError('inviteCode') !== undefined)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(undefined)
     try {
-      onSignedIn(await (registering ? api.register(email, password) : api.login(email, password)))
+      onSignedIn(await (registering ? api.register(email, password, inviteCode.trim()) : api.login(email, password)))
     } catch (err) {
       setError(err as Error)
       setBusy(false)
@@ -89,13 +95,40 @@ export function SignInPage({ onSignedIn }: { onSignedIn: (user: User) => void })
           )}
         </div>
 
+        {askInvite && (
+          <div className="field">
+            <label htmlFor="invite">Invite code</label>
+            <input
+              id="invite"
+              className="input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              aria-invalid={fieldError('inviteCode') ? true : undefined}
+              aria-describedby="invite-hint"
+              required
+            />
+            {fieldError('inviteCode') ? (
+              <p id="invite-hint" className="field-error">
+                {fieldError('inviteCode')}
+              </p>
+            ) : (
+              <p id="invite-hint" className="hint">
+                This app is invite-only for now. The person who invited you has the code.
+              </p>
+            )}
+          </div>
+        )}
+
         {formError && (
           <div className="notice notice-error" role="alert">
             <p>{formError}</p>
           </div>
         )}
 
-        <button type="submit" className="button button-primary signin-submit" disabled={busy || email.trim() === '' || password === ''}>
+        <button type="submit" className="button button-primary signin-submit" disabled={busy || email.trim() === '' || password === '' || (askInvite && inviteCode.trim() === '')}>
           {busy ? 'One moment…' : registering ? 'Create account' : 'Sign in'}
         </button>
       </form>

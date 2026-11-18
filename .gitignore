@@ -492,3 +492,6 @@ audio-storage/
 
 # Local tooling
 .claude/
+
+# Server backups (deploy/backup.sh)
+deploy/backups/
